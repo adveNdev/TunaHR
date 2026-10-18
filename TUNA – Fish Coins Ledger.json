@@ -1,0 +1,847 @@
+{
+  "name": "TUNA – Fish Coins Ledger",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Fish Coins Ledger\nЕдинственная точка изменения баланса. Баланс 0..100, без отрицательных значений, каждая операция пишется в tuna_fish_transactions.\n\n**Ограничение:** n8n Data Tables не транзакционны. Два одновременных вызова для одного сотрудника с РАЗНЫМИ idempotency_key могут прочитать один и тот же баланс и перезаписать друг друга (race condition). Дубли по одному idempotency_key откатываются, но атомарность баланса не гарантируется.",
+        "color": 3
+      },
+      "id": "8b8d0540-efdf-42e7-b53e-03f2c68b96c4",
+      "name": "Sticky Note 8b8d0540",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "employee_id"
+            },
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "transaction_type"
+            },
+            {
+              "name": "reason"
+            },
+            {
+              "name": "initiated_by"
+            },
+            {
+              "name": "related_shift_id"
+            },
+            {
+              "name": "idempotency_key"
+            }
+          ]
+        }
+      },
+      "id": "85bdbc33-c7f7-4231-8859-8b5cb5bc025e",
+      "name": "Ledger Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const TYPES = ['WELCOME_BONUS','SHIFT_BONUS','ACHIEVEMENT','ADMIN_CREDIT','ADMIN_DEBIT'];\nconst j = $json;\nconst employee_id = String(j.employee_id || '').trim();\nconst idempotency_key = String(j.idempotency_key || '').trim();\nconst amount = Number(j.amount);\nconst transaction_type = String(j.transaction_type || '').trim();\nlet valid = true;\nlet error = '';\nif (!employee_id) { valid = false; error = 'employee_id is required'; }\nelse if (!idempotency_key) { valid = false; error = 'idempotency_key is required'; }\nelse if (!Number.isFinite(amount) || amount === 0 || Math.floor(amount) !== amount) { valid = false; error = 'amount must be a non-zero integer'; }\nelse if (!TYPES.includes(transaction_type)) { valid = false; error = 'unknown transaction_type'; }\nelse if (transaction_type === 'ADMIN_DEBIT' && amount > 0) { valid = false; error = 'ADMIN_DEBIT amount must be negative'; }\nelse if (transaction_type !== 'ADMIN_DEBIT' && amount < 0) { valid = false; error = 'only ADMIN_DEBIT may be negative'; }\nreturn { json: {\n  valid, error,\n  employee_id, idempotency_key, amount, transaction_type,\n  reason: String(j.reason || transaction_type),\n  initiated_by: String(j.initiated_by || 'SYSTEM'),\n  related_shift_id: String(j.related_shift_id || ''),\n} };"
+      },
+      "id": "09d6a170-9210-4078-a00d-56502b527272",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1aae04f4-d386-4115-bda6-3a335e258d79",
+      "name": "Input Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "J3APm2b385BpfWQI",
+          "cachedResultName": "tuna_fish_transactions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "idempotency_key",
+              "keyValue": "={{ $json.idempotency_key }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "d65c0f08-3a66-4f12-9e03-666472b5b702",
+      "name": "Find Existing Transaction",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        224
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "employee_id",
+              "keyValue": "={{ $(\"Validate Input\").first().json.employee_id }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "217c1a1d-78c5-4884-8f60-7dac3767425c",
+      "name": "Find Employee",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        224
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5bm4dT3OeK9CrgTz",
+          "cachedResultName": "tuna_bot_settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "setting_key",
+              "keyValue": "max_fish_coins"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "fdf9aef6-2815-4cbd-89c5-732628812bd8",
+      "name": "Get Max Coins Setting",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        224
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() { const h = '0123456789abcdef'; let s = ''; for (let i = 0; i < 36; i++) { if (i === 8 || i === 13 || i === 18 || i === 23) { s += '-'; continue; } if (i === 14) { s += '4'; continue; } let r = Math.floor(Math.random() * 16); if (i === 19) r = (r & 3) | 8; s += h[r]; } return s; }\n// Programmatic balance rules: 0..max, never negative, cap handling, idempotency.\nconst req = $('Validate Input').first().json;\nconst txRow = $('Find Existing Transaction').first().json || {};\nconst empRow = $('Find Employee').first().json || {};\nconst setRow = $('Get Max Coins Setting').first().json || {};\nlet max = parseInt(setRow.setting_value, 10);\nif (!Number.isFinite(max) || max <= 0) max = 100;\n\nconst base = Object.assign({}, req, { max, apply: false });\n\nif (!empRow.employee_id) {\n  return [{ json: Object.assign(base, { ok: false, result: 'EMPLOYEE_NOT_FOUND', applied_amount: 0, balance_after: null, transaction_id: null }) }];\n}\nconst current = Math.max(0, Math.min(max, Math.floor(Number(empRow.fish_coins_balance) || 0)));\nbase.current_balance = current;\nbase.welcome_flag = empRow.welcome_bonus_granted === true;\n\nif (txRow.idempotency_key) {\n  return [{ json: Object.assign(base, { ok: true, result: 'DUPLICATE', applied_amount: 0, balance_after: current, transaction_id: txRow.transaction_id || null }) }];\n}\n\nconst amount = req.amount;\nlet applied = amount;\nif (amount > 0) {\n  if (current + amount > max) {\n    if (req.transaction_type === 'ADMIN_CREDIT') {\n      return [{ json: Object.assign(base, { ok: false, result: 'CAP_EXCEEDED', applied_amount: 0, balance_after: current, transaction_id: null }) }];\n    }\n    applied = max - current;\n    if (applied <= 0) {\n      return [{ json: Object.assign(base, { ok: false, result: 'CAP_REACHED', applied_amount: 0, balance_after: current, transaction_id: null }) }];\n    }\n  }\n} else {\n  if (current + amount < 0) {\n    return [{ json: Object.assign(base, { ok: false, result: 'INSUFFICIENT_BALANCE', applied_amount: 0, balance_after: current, transaction_id: null }) }];\n  }\n}\n\nconst balance_after = current + applied;\nreturn [{ json: Object.assign(base, {\n  apply: true,\n  ok: true,\n  result: 'APPLIED',\n  applied_amount: applied,\n  balance_after,\n  transaction_id: uuidv4(),\n  created_ts: new Date().toISOString(),\n  welcome_flag: base.welcome_flag || req.transaction_type === 'WELCOME_BONUS',\n}) }];"
+      },
+      "id": "6738a811-bb84-47d6-b18f-8140739ce7ab",
+      "name": "Compute Balance Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.apply }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6f27c538-dd50-43b0-902b-bcafc71ac804",
+      "name": "Apply Transaction?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1696,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "J3APm2b385BpfWQI",
+          "cachedResultName": "tuna_fish_transactions"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "transaction_id": "={{ $json.transaction_id }}",
+            "employee_id": "={{ $json.employee_id }}",
+            "amount": "={{ $json.applied_amount }}",
+            "transaction_type": "={{ $json.transaction_type }}",
+            "reason": "={{ $json.reason }}",
+            "created_ts": "={{ $json.created_ts }}",
+            "initiated_by": "={{ $json.initiated_by }}",
+            "related_shift_id": "={{ $json.related_shift_id }}",
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "balance_after": "={{ $json.balance_after }}",
+            "tx_status": "CONFIRMED"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "transaction_id",
+              "displayName": "transaction_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "transaction_type",
+              "displayName": "transaction_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_ts",
+              "displayName": "created_ts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "initiated_by",
+              "displayName": "initiated_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "related_shift_id",
+              "displayName": "related_shift_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "balance_after",
+              "displayName": "balance_after",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tx_status",
+              "displayName": "tx_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "48bed5c2-d351-4a86-80cf-8085a7aaefa4",
+      "name": "Insert Transaction",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "J3APm2b385BpfWQI",
+          "cachedResultName": "tuna_fish_transactions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "idempotency_key",
+              "keyValue": "={{ $(\"Compute Balance Decision\").first().json.idempotency_key }}"
+            },
+            {
+              "keyName": "tx_status",
+              "keyValue": "CONFIRMED"
+            }
+          ]
+        },
+        "returnAll": true,
+        "orderBy": true,
+        "orderByColumn": "id",
+        "orderByDirection": "ASC"
+      },
+      "id": "dd184038-ebb1-4452-a74b-46dfeb6011a4",
+      "name": "Recheck Idempotency",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1552,
+        224
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// If a parallel call inserted the same idempotency_key, the earliest row wins.\nconst d = $('Compute Balance Decision').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.transaction_id);\nrows.sort((a, b) => Number(a.id) - Number(b.id));\nconst winner = rows.length ? rows[0] : null;\nconst isWinner = !winner || winner.transaction_id === d.transaction_id;\nreturn [{ json: Object.assign({}, d, { is_winner: isWinner, winner_transaction_id: winner ? winner.transaction_id : d.transaction_id, winner_balance_after: winner ? winner.balance_after : d.balance_after }) }];"
+      },
+      "id": "0819f6cb-f7dd-4548-9748-ff463429a011",
+      "name": "Resolve Duplicate Race",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_winner }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "532ec046-da94-4e91-abfe-31b5eed26f6c",
+      "name": "Is Winning Transaction?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "employee_id",
+              "keyValue": "={{ $json.employee_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fish_coins_balance": "={{ $json.balance_after }}",
+            "welcome_bonus_granted": "={{ $json.welcome_flag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "fish_coins_balance",
+              "displayName": "fish_coins_balance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "welcome_bonus_granted",
+              "displayName": "welcome_bonus_granted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0de6c7dc-5f94-41fd-9ad0-e0f10f4dc902",
+      "name": "Update Employee Balance",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2224,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Resolve Duplicate Race').first().json;\nconst updated = $input.all().filter(i => i.json && Object.keys(i.json).length > 0).length;\nif (updated === 0) {\n  throw new Error('Fish Coins: transaction ' + d.transaction_id + ' recorded but employee balance update returned no rows');\n}\nreturn [{ json: { ok: true, result: 'APPLIED', applied_amount: d.applied_amount, balance_after: d.balance_after, transaction_id: d.transaction_id, max: d.max } }];"
+      },
+      "id": "f7e45cd1-4e94-4ce2-ab24-449aa8151daa",
+      "name": "Applied Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "J3APm2b385BpfWQI",
+          "cachedResultName": "tuna_fish_transactions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tx_status": "DUPLICATE_ROLLBACK"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "tx_status",
+              "displayName": "tx_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "931635f2-5672-4447-9ad8-2107fe1d94ee",
+      "name": "Mark Duplicate Rollback",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2224,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Resolve Duplicate Race').first().json;\nreturn [{ json: { ok: true, result: 'DUPLICATE', applied_amount: 0, balance_after: d.winner_balance_after, transaction_id: d.winner_transaction_id, max: d.max } }];"
+      },
+      "id": "41e787fc-a885-4567-8d95-deeb07cb1f06",
+      "name": "Duplicate Race Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const j = $json;\nreturn { json: { ok: j.ok, result: j.result, applied_amount: 0, balance_after: j.balance_after, transaction_id: j.transaction_id, max: j.max } };"
+      },
+      "id": "75d4f6f4-d6c1-4c47-a782-565c31af75d2",
+      "name": "No-Change Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { ok: false, result: 'INVALID_INPUT', error: $json.error, applied_amount: 0, balance_after: null, transaction_id: null, max: 100 } };"
+      },
+      "id": "228a3da2-c991-4fd7-ab04-152901e4ff97",
+      "name": "Invalid Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        288
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ledger Request": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Input Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Valid?": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Transaction": {
+      "main": [
+        [
+          {
+            "node": "Find Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Employee": {
+      "main": [
+        [
+          {
+            "node": "Get Max Coins Setting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Max Coins Setting": {
+      "main": [
+        [
+          {
+            "node": "Compute Balance Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Balance Decision": {
+      "main": [
+        [
+          {
+            "node": "Apply Transaction?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Transaction?": {
+      "main": [
+        [
+          {
+            "node": "Insert Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No-Change Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Transaction": {
+      "main": [
+        [
+          {
+            "node": "Recheck Idempotency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck Idempotency": {
+      "main": [
+        [
+          {
+            "node": "Resolve Duplicate Race",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Duplicate Race": {
+      "main": [
+        [
+          {
+            "node": "Is Winning Transaction?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Winning Transaction?": {
+      "main": [
+        [
+          {
+            "node": "Update Employee Balance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Duplicate Rollback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Employee Balance": {
+      "main": [
+        [
+          {
+            "node": "Applied Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Duplicate Rollback": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Race Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "456373f0-c81d-4d0c-8c68-d589f89c1528",
+  "meta": {
+    "instanceId": "b3b64599f7cfd6fc4e99305a6bd3a6f9ffcdd44c96792cea2b8e889b747dc26a"
+  },
+  "nodeGroups": [
+    {
+      "id": "26c91951-211a-4efe-a55e-adc937f73d84",
+      "name": "Validate request",
+      "nodeIds": [
+        "09d6a170-9210-4078-a00d-56502b527272",
+        "1aae04f4-d386-4115-bda6-3a335e258d79"
+      ],
+      "description": "Rejects calls without employee, idempotency key or a valid non-zero amount; nothing is written"
+    },
+    {
+      "id": "af63e6f5-8844-4348-b2b6-804ced4c1a52",
+      "name": "Decide balance change",
+      "nodeIds": [
+        "d65c0f08-3a66-4f12-9e03-666472b5b702",
+        "217c1a1d-78c5-4884-8f60-7dac3767425c",
+        "fdf9aef6-2815-4cbd-89c5-732628812bd8",
+        "6738a811-bb84-47d6-b18f-8140739ce7ab",
+        "6f27c538-dd50-43b0-902b-bcafc71ac804"
+      ],
+      "description": "Detects repeats, loads the employee and the 100-coin cap, then decides apply, cap, or insufficient funds"
+    },
+    {
+      "id": "9d05f2dd-7c01-440d-8db7-1578a48da8b9",
+      "name": "Record transaction",
+      "nodeIds": [
+        "48bed5c2-d351-4a86-80cf-8085a7aaefa4",
+        "dd184038-ebb1-4452-a74b-46dfeb6011a4",
+        "0819f6cb-f7dd-4548-9748-ff463429a011",
+        "532ec046-da94-4e91-abfe-31b5eed26f6c",
+        "0de6c7dc-5f94-41fd-9ad0-e0f10f4dc902",
+        "f7e45cd1-4e94-4ce2-ab24-449aa8151daa",
+        "931635f2-5672-4447-9ad8-2107fe1d94ee",
+        "41e787fc-a885-4567-8d95-deeb07cb1f06"
+      ],
+      "description": "Writes the ledger row, rolls back parallel duplicates, then updates the stored balance"
+    }
+  ],
+  "id": "WARA6Q8BVUq8j8e4",
+  "tags": []
+}

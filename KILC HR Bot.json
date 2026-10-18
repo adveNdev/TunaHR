@@ -1,0 +1,2124 @@
+{
+  "name": "KILC HR Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## TUNA HR AI BOT — настройка\n1. В таблице **tuna_bot_settings** заполните `admin_telegram_ids` JSON-массивом Telegram ID, например `[\"123456789\"]`. Должность «Администратор» прав НЕ даёт.\n2. Рабочая точка: `work_lat`, `work_lon`, `work_radius_m` (или команда /geo у админа).\n3. Достижения: `achievement_rules` — JSON `[{\"id\":\"...\",\"name\":\"...\",\"amount\":1}]`.\n4. Sub-workflows: TUNA – Registration, TUNA – Shift Engine, TUNA – HR & Admin, TUNA – Fish Coins Ledger.\n\n**Внимание:** Data Tables не поддерживают транзакции — атомарность не гарантируется, при одновременных запросах возможны гонки (монеты защищены ключом идемпотентности).\nAI только отвечает текстом и не имеет инструментов записи.",
+        "color": 4
+      },
+      "id": "a87a1f14-574e-4096-9983-94ed295268be",
+      "name": "Sticky Note a87a1f14",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        608,
+        1520
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "9fc997a3-b4ad-4081-b847-7463f299b7f7",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "efbc669d-a234-499d-b893-42d8848bc871",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "exOKuvNG2bk9dNWc",
+          "cachedResultName": "kilc_processed_updates"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "update_key",
+              "keyValue": "={{ String($json.update_id) }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "d40a754f-106e-4059-8ded-e850aedd00fd",
+      "name": "Check Processed Update",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        128
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.update_key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "f8118595-81d5-4f6f-948c-7aab2102955e",
+      "name": "Is New Update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1296,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "exOKuvNG2bk9dNWc",
+          "cachedResultName": "kilc_processed_updates"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "update_key": "={{ String($('Telegram Trigger').item.json.update_id) }}",
+            "telegram_id": "={{ String($('Telegram Trigger').item.json.message.from.id) }}",
+            "processed_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "update_key",
+              "displayName": "update_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "58016583-68e4-4f57-a5dd-1b4f77a93efb",
+      "name": "Mark Update Processed",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -1072,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ String($(\"Telegram Trigger\").first().json.message?.from?.id ?? \"\") }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "bef54728-6aca-48dc-b9d1-93f4995dbf5e",
+      "name": "Get Employee",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -848,
+        -208
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "8WsdGkwkkMAM0Jkz",
+          "cachedResultName": "tuna_registration_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ String($(\"Telegram Trigger\").first().json.message?.from?.id ?? \"\") }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "9e93a107-cd1c-4dac-906a-c94d07dfac0e",
+      "name": "Get Registration Session",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        -208
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ String($(\"Telegram Trigger\").first().json.message?.from?.id ?? \"\") }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "18761946-9d40-4a08-be34-25d5fdfd0264",
+      "name": "Get Dialog State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1152,
+        -208
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5bm4dT3OeK9CrgTz",
+          "cachedResultName": "tuna_bot_settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "setting_key",
+              "condition": "isNotEmpty"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "6232f557-ba1e-4f3b-b4af-8018b21da683",
+      "name": "Get Bot Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        -208
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Route Update — детерминированная маршрутизация кодом. AI в решениях не участвует.\nconst upd = $('Telegram Trigger').first().json || {};\nconst m = upd.message || {};\nconst from = m.from || {};\nconst telegram_id = from.id != null ? String(from.id) : '';\nconst chat_id = m.chat && m.chat.id != null ? String(m.chat.id) : telegram_id;\nconst update_id = String(upd.update_id == null ? '' : upd.update_id);\nconst text = typeof m.text === 'string' ? m.text.trim() : '';\nfunction rows(name, key) { return $(name).all().map(function (i) { return i.json; }).filter(function (r) { return r && r[key]; }); }\nconst S = {};\nrows('Get Bot Settings', 'setting_key').forEach(function (r) { S[r.setting_key] = r.setting_value; });\nfunction parseIds(v) {\n  try { const a = JSON.parse(v || '[]'); if (Array.isArray(a)) return a.map(function (x) { return String(x).trim(); }).filter(Boolean); } catch (e) {}\n  return String(v || '').split(/[\\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);\n}\nconst isAdmin = telegram_id !== '' && parseIds(S.admin_telegram_ids).indexOf(telegram_id) >= 0;\nconst tz = S.timezone || 'Asia/Almaty';\nconst now = DateTime.now().setZone(tz);\nconst employee = rows('Get Employee', 'employee_id').find(function (r) { return String(r.employee_status || '').toUpperCase() === 'ACTIVE'; });\nconst session = rows('Get Registration Session', 'telegram_id')[0] || null;\nconst dialog = rows('Get Dialog State', 'telegram_id')[0] || null;\nlet dialogExpired = false;\nif (dialog) { const e = DateTime.fromISO(String(dialog.expires_at || '')); dialogExpired = !e.isValid || e < now; }\nconst isForwarded = !!(m.forward_origin || m.forward_date || m.forward_from || m.forward_from_chat || m.forward_sender_name);\nconst base = { telegram_id: telegram_id, chat_id: chat_id, update_id: update_id, text: text, is_admin: isAdmin, registered: !!employee, has_session: !!session, dialog_flow: dialog ? dialog.flow : '', dialog_expired: dialogExpired };\n\nfunction out(target, extra) { return [{ json: Object.assign({ target: target }, base, extra || {}) }]; }\nfunction direct(t, kb) { return out('DIRECT', { reply: { action: 'REPLY', chat_id: chat_id, text: t, keyboard_type: kb || 'main_menu', keyboard: [] } }); }\nfunction shift(action) {\n  return out('SHIFT', { shift: { action: action, telegram_id: telegram_id, chat_id: chat_id, update_id: update_id, location_json: m.location ? JSON.stringify(m.location) : '', message_date: Number(m.date) || 0, is_forwarded: isForwarded } });\n}\nfunction hr(action, payload) {\n  return out('HR', { hr: { action: action, telegram_id: telegram_id, chat_id: chat_id, text: text, update_id: update_id, payload_json: payload ? JSON.stringify(payload) : '' } });\n}\nfunction ai(q) { return out('AI', { ai_text: q }); }\n\nif (!telegram_id) return out('NONE');\n\n// Психолог — сохранённый сценарий\nif (text === '🧠 Психолог' || text === '/psychologist' || /психолог|psycholog/i.test(text)) {\n  return direct('🧠 Психологическая поддержка\\n\\nЕсли тебе тяжело, тревожно или просто хочется поговорить — напиши нашему боту-психологу:\\n\\n👉 @neploxo_HQ_bot\\nhttps://t.me/neploxo_HQ_bot\\n\\nТвоя переписка с ним не попадает в HR-бот.', employee ? 'main_menu' : 'remove');\n}\n\n// 1. Нет активного профиля (включая незавершённую регистрацию) → Registration\nif (!employee || session) {\n  return out('REGISTRATION', { reg: {\n    telegram_id: telegram_id, chat_id: chat_id, text: text,\n    contact_json: m.contact ? JSON.stringify(m.contact) : '',\n    update_id: update_id, first_name: String(from.first_name || ''), username: String(from.username || ''),\n  } });\n}\n\n// 2. Геолокация → Shift Engine (он проверяет запрос, свежесть, пересылку, live location и радиус)\nif (m.location) return shift('LOCATION');\n\nconst SHIFT_FLOWS = ['CHECK_IN', 'CHECK_OUT'];\nconst HR_FLOWS = ['VACATION', 'SICK', 'MEETING', 'ADMIN_CONFIRM'];\nif (text === '❌ Отмена' || text === '/cancel' || text === 'Отмена') {\n  if (dialog && SHIFT_FLOWS.indexOf(dialog.flow) >= 0) return shift('CANCEL');\n  if (dialog && HR_FLOWS.indexOf(dialog.flow) >= 0) return hr('DIALOG_INPUT');\n  return direct('Действие отменено. Выберите пункт меню.');\n}\n\nconst MENU_ACTIONS = {\n  '🟢 Начать работу': ['SHIFT', 'REQUEST_CHECK_IN'],\n  '🔴 Завершить работу': ['SHIFT', 'REQUEST_CHECK_OUT'],\n  '🐟 Fish Coins': ['HR', 'MY_COINS'],\n  '🐟 Мои Fish Coins': ['HR', 'MY_COINS'],\n  '📊 Моя статистика': ['HR', 'MY_STATS'],\n  '👤 Мой профиль': ['HR', 'MY_PROFILE'],\n  '🏖 Отпуск': ['HR', 'START_VACATION'],\n  '🏖️ Отпуск': ['HR', 'START_VACATION'],\n  '🤒 Больничный': ['HR', 'START_SICK'],\n  '🏥 Больничный': ['HR', 'START_SICK'],\n  '📅 Встреча': ['HR', 'START_MEETING'],\n};\nconst ADMIN_TEXTS = ['⚙️ Админ-панель', '📋 Заявки на рассмотрении', '👥 Сотрудники'];\nconst ADMIN_CMD = /^\\/(admin|pending|employees|approve|reject|coins|achieve|geo|reset)(\\s|$|@)/i;\n\n// Админ — только по списку admin_telegram_ids (не по должности)\nif (ADMIN_TEXTS.indexOf(text) >= 0 || ADMIN_CMD.test(text)) {\n  if (!isAdmin) return out('DIRECT', { result: 'FORBIDDEN', reply: { action: 'REPLY', chat_id: chat_id, text: '⛔ Доступ запрещён. Админ-панель доступна только назначенным администраторам.', keyboard_type: 'main_menu', keyboard: [] } });\n  return hr(text === '⚙️ Админ-панель' ? 'ADMIN_MENU' : 'ADMIN_COMMAND');\n}\nif (text === '✅ Да, выполнить' || text === '❌ Нет, отменить') {\n  if (dialog && dialog.flow === 'ADMIN_CONFIRM') return hr(text === '✅ Да, выполнить' ? 'CONFIRM_YES' : 'CONFIRM_NO');\n  return direct('Нет действия, ожидающего подтверждения.');\n}\nif (MENU_ACTIONS[text]) {\n  const a = MENU_ACTIONS[text];\n  return a[0] === 'SHIFT' ? shift(a[1]) : hr(a[1]);\n}\nif (text === '/start' || text === '/menu' || text === '🏠 Главное меню') {\n  return direct('Здравствуйте, ' + String(employee.full_name || from.first_name || '') + '! Ваш ID: ' + employee.tuna_id + '.\\nВыберите действие в меню ниже.');\n}\nif (text === '❓ Помощь' || text === '/help') {\n  return direct('ℹ️ TUNA HR бот\\n🟢 Начать работу / 🔴 Завершить работу — отметка по геолокации (радиус ' + (S.work_radius_m || 150) + ' м).\\n🐟 Fish Coins — баланс и история.\\n📊 Моя статистика — смены и часы за месяц.\\n🏖 Отпуск, 🤒 Больничный, 📅 Встреча — заявки HR.\\n👤 Мой профиль — ваши данные.\\n🤖 Спросить TUNA — вопросы ассистенту.\\n🧠 Психолог — /psychologist');\n}\nif (text === 'ℹ️ Что такое Fish Coins') {\n  return direct('🐟 Fish Coins — внутренние баллы TUNA: +1 при регистрации (один раз), +1 за каждую завершённую смену с геопроверкой (не более одной в день), а также за достижения по правилам администратора. Максимум ' + (S.max_fish_coins || 100) + '.');\n}\nif (text === '🤖 Спросить TUNA') {\n  return ai('Пользователь нажал кнопку «🤖 Спросить TUNA». Коротко поприветствуй по-русски и по-казахски и предложи задать вопрос.');\n}\n// 3. Активный диалог → его владельцу\nif (dialog && !dialogExpired && HR_FLOWS.indexOf(dialog.flow) >= 0 && text) return hr('DIALOG_INPUT');\nif (dialog && !dialogExpired && SHIFT_FLOWS.indexOf(dialog.flow) >= 0) {\n  return out('DIRECT', { reply: { action: 'REPLY', chat_id: chat_id, text: '📍 Жду вашу геолокацию: нажмите «📍 Отправить геолокацию» ниже или «❌ Отмена».', keyboard_type: 'location', keyboard: [] } });\n}\nif (m.contact) return direct('Номер телефона уже подтверждён при регистрации. Выберите действие в меню.');\nif (!text) return direct('Я понимаю текст, кнопки меню и геолокацию. Выберите действие в меню ниже.');\n// 4. Остальное → AI-ассистент (только объясняет)\nreturn ai(text.slice(0, 1500));"
+      },
+      "id": "9ce03c94-73e0-4708-bc39-5cbdda754447",
+      "name": "Route Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "REGISTRATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "REGISTRATION"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "SHIFT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SHIFT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "HR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HR"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "AI",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "AI"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "DIRECT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DIRECT"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e2a65097-8a30-42ca-a4a2-ce42100d65eb",
+      "name": "Route Target",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        560,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "JUEB6ral4DIkIZWS",
+          "cachedResultName": "TUNA – Registration"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $json.reg.telegram_id }}",
+            "chat_id": "={{ $json.reg.chat_id }}",
+            "text": "={{ $json.reg.text }}",
+            "contact_json": "={{ $json.reg.contact_json }}",
+            "update_id": "={{ $json.reg.update_id }}",
+            "first_name": "={{ $json.reg.first_name }}",
+            "username": "={{ $json.reg.username }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contact_json",
+              "displayName": "contact_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "update_id",
+              "displayName": "update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "username",
+              "displayName": "username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ec2d95f9-c7d0-4208-997e-0bfd7cac06dd",
+      "name": "Run Registration",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1136,
+        -208
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const route = $('Route Update').first().json;\nconst r = $input.first().json || {};\nif (r.action === 'NOOP') return [{ json: { send_mode: 'none' } }];\nlet text = typeof r.text === 'string' ? r.text : '';\nlet kbType = r.keyboard_type || 'main_menu';\nif (!text) { text = '⚠️ Техническая ошибка, ваши данные не потеряны. Повторите действие чуть позже. Код: ' + $execution.id; kbType = route.registered ? 'main_menu' : 'remove'; }\nfunction esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }\n// HR & Admin уже экранирует HTML; остальные источники экранируем здесь.\nif (route.target !== 'HR') text = esc(text);\nlet mode = 'remove';\nlet kb = [];\nif (kbType === 'main_menu') mode = route.is_admin ? 'menu_admin' : 'menu';\nelse if (kbType === 'location') mode = 'location';\nelse if (kbType === 'contact') mode = 'contact';\nelse if (kbType === 'reply') {\n  kb = (Array.isArray(r.keyboard) ? r.keyboard : []).filter(function (row) { return Array.isArray(row) && row.length; }).map(function (row) { return row.map(function (t) { return String(t).slice(0, 60); }); });\n  const shape = kb.map(function (row) { return row.length; }).join('_');\n  const SUPPORTED = ['1', '1_1', '2_1', '3_2', '2_2_2_1'];\n  if (SUPPORTED.indexOf(shape) >= 0) mode = 'kb_' + shape;\n  else if (kb.length) {\n    // Нестандартная клавиатура: варианты текстом, ответ можно ввести вручную.\n    text += '\\n\\nВарианты: ' + kb.map(function (row) { return row.map(esc).join(' | '); }).join(' | ');\n    kb = [];\n  }\n}\nif (text.length > 4000) text = text.slice(0, 4000) + '…';\nreturn [{ json: { send_mode: mode, chat_id: String(r.chat_id || route.chat_id), text: text, kb: kb } }];"
+      },
+      "id": "75527b8f-63a6-46de-807e-4850765183a4",
+      "name": "Prepare Telegram Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "menu",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "menu"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "menu_admin",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "menu_admin"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "location",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "location"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "contact",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "contact"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "remove",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "remove"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "kb_1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "kb_1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "kb_1_1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "kb_1_1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "kb_2_1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "kb_2_1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "kb_3_2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "kb_3_2"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.send_mode }}",
+                    "rightValue": "kb_2_2_2_1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "kb_2_2_2_1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f55152b8-9219-4a34-a2de-db7af5737bb5",
+      "name": "Send Mode",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1088,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🟢 Начать работу",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "🔴 Завершить работу",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🐟 Fish Coins",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "📊 Моя статистика",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🏖 Отпуск",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "🤒 Больничный",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "📅 Встреча",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "👤 Мой профиль",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🤖 Спросить TUNA",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "8f0b2a2a-1dfd-4919-8507-4e570ba54154",
+      "name": "Telegram Send Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2080,
+        128
+      ],
+      "webhookId": "2453fdb9-94a0-49c7-b1bb-ffa8063ccf75",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🟢 Начать работу",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "🔴 Завершить работу",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🐟 Fish Coins",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "📊 Моя статистика",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🏖 Отпуск",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "🤒 Больничный",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "📅 Встреча",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "👤 Мой профиль",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🤖 Спросить TUNA",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "⚙️ Админ-панель",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "2e4401e5-73e9-4cdc-aba9-b79d5fe9d33e",
+      "name": "Send Admin Menu",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        -16
+      ],
+      "webhookId": "e33af1f2-8c6e-40ba-aefd-b6d6756e9de3",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "📍 Отправить геолокацию",
+                    "additionalFields": {
+                      "request_location": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "❌ Отмена",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "2125ffc2-3268-4a36-8a18-c2cc79bfb9ca",
+      "name": "Telegram Send Location Request",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        -176
+      ],
+      "webhookId": "eec15d09-94c6-4adb-aace-d1ab8959acaf",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "📱 Отправить номер телефона",
+                    "additionalFields": {
+                      "request_contact": true
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": true
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "4f912ad1-60ca-4320-9410-c382dc4fc63c",
+      "name": "Send Contact Request",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        368
+      ],
+      "webhookId": "2cdccdd8-825e-4e81-98be-5772d25a70ad",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboardRemove",
+        "replyKeyboardRemove": {
+          "remove_keyboard": true
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "cf6cefb7-ec0d-4948-bb51-3a99754ed11c",
+      "name": "Telegram Send (No Keyboard)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2304,
+        224
+      ],
+      "webhookId": "327d6b30-ac77-4882-855b-f925a9b1174b",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[0][0] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "52205746-ab4b-4fb3-ad84-566dfbbd67d4",
+      "name": "Send Buttons 1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        752
+      ],
+      "webhookId": "51c55968-b68d-4a1e-bf6f-f10d270ccb70",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[0][0] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[1][0] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "7b4dd1ba-4026-402b-9b8b-706001574178",
+      "name": "Send Buttons 1+1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        944
+      ],
+      "webhookId": "470400b0-da19-4e68-8748-49fd09e6a3c6",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[0][0] }}",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "={{ $json.kb[0][1] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[1][0] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "4e980bc5-860f-44dd-83ae-4b11ec799181",
+      "name": "Send Buttons 2+1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        1136
+      ],
+      "webhookId": "e5d05904-572c-4335-86b2-f4d40aed16fd",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[0][0] }}",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "={{ $json.kb[0][1] }}",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "={{ $json.kb[0][2] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[1][0] }}",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "={{ $json.kb[1][1] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "22a618be-90b3-4b7f-9d09-7ec5d6fb7eb2",
+      "name": "Send Buttons 3+2",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        1328
+      ],
+      "webhookId": "e4cf770b-ded3-4b5c-8722-3a2695700abc",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[0][0] }}",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "={{ $json.kb[0][1] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[1][0] }}",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "={{ $json.kb[1][1] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[2][0] }}",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "={{ $json.kb[2][1] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.kb[3][0] }}",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true,
+          "one_time_keyboard": false
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "56d348fc-1b68-4cce-b724-67de9d24004a",
+      "name": "Send Buttons 2+2+2+1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        1520
+      ],
+      "webhookId": "5a912eb5-0cd3-4db9-8c60-81b126fc8c33",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vEBOeSBfA7NJCH5Z",
+          "cachedResultName": "TUNA – Shift Engine"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "={{ $json.shift.action }}",
+            "telegram_id": "={{ $json.shift.telegram_id }}",
+            "chat_id": "={{ $json.shift.chat_id }}",
+            "update_id": "={{ $json.shift.update_id }}",
+            "location_json": "={{ $json.shift.location_json }}",
+            "message_date": "={{ $json.shift.message_date }}",
+            "is_forwarded": "={{ $json.shift.is_forwarded }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "update_id",
+              "displayName": "update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "location_json",
+              "displayName": "location_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message_date",
+              "displayName": "message_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_forwarded",
+              "displayName": "is_forwarded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "fa7b556f-471b-4c38-86e7-34035181feaa",
+      "name": "Run Shift Engine",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1136,
+        -16
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "NLKAYcKVTICYSy4x",
+          "cachedResultName": "TUNA – HR & Admin"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "={{ $json.hr.action }}",
+            "telegram_id": "={{ $json.hr.telegram_id }}",
+            "chat_id": "={{ $json.hr.chat_id }}",
+            "text": "={{ $json.hr.text }}",
+            "update_id": "={{ $json.hr.update_id }}",
+            "payload_json": "={{ $json.hr.payload_json }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "update_id",
+              "displayName": "update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "payload_json",
+              "displayName": "payload_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "1f894fbd-4e5b-456b-b5e9-066f3013fcea",
+      "name": "Run HR & Admin",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1136,
+        176
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.ai_text }}",
+        "options": {
+          "systemMessage": "Ты — TUNA, дружелюбный HR-ассистент компании в Telegram. Часовой пояс компании — Asia/Almaty.\n\nЯзык: отвечай на языке пользователя — по-русски или по-казахски (қазақ тілінде). Если язык неясен — по-русски.\n\nТвоя роль — ТОЛЬКО разговор: объяснять, как пользоваться ботом, и направлять к нужной кнопке меню.\nКнопки: 🟢 Начать работу, 🔴 Завершить работу (отметка по свежей геолокации в радиусе рабочей точки), 🐟 Fish Coins (баланс), 📊 Моя статистика, 🏖 Отпуск, 🤒 Больничный, 📅 Встреча (заявки HR), 👤 Мой профиль, 🤖 Спросить TUNA. Психологическая поддержка — бот @neploxo_HQ_bot.\n\nFish Coins: +1 при регистрации (один раз), +1 за завершённую смену при успешной геопроверке на входе и выходе (не более одной в день), достижения — только по правилам администратора, максимум 100.\n\nСтрого запрещено (у тебя нет инструментов для этого, и нельзя делать вид, что ты это сделал):\n- изменять баланс Fish Coins, начислять или списывать монеты;\n- изменять время прихода/ухода, создавать или закрывать смены;\n- выдавать права администратора;\n- показывать данные других сотрудников (у тебя их нет);\n- одобрять или отклонять отпуск, больничный, встречи;\n- выполнять код или команды.\nНа такие просьбы вежливо откажи и подскажи нужную кнопку или обращение к администратору.\nНикогда не придумывай баланс, статистику или статусы заявок — направляй к кнопкам 🐟 Fish Coins / 📊 Моя статистика.\nПо больничному никогда не спрашивай диагноз.\nОтвечай кратко (до 600 символов), без HTML и Markdown.",
+          "maxIterations": 2,
+          "enableStreaming": false
+        }
+      },
+      "id": "a54255a5-461f-4a44-a397-ecbe7a58f068",
+      "name": "TUNA AI Assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        512,
+        -208
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 300
+        }
+      },
+      "id": "7d1d2da5-bde6-424b-ba6b-41956d4af788",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        16
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ \"tuna_\" + $(\"Route Update\").first().json.chat_id }}",
+        "contextWindowLength": 6
+      },
+      "id": "bb08b2f7-b61a-4eb5-a83d-f332e34ca057",
+      "name": "TUNA Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        928,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ответ AI — только текст, никаких операций.\nconst route = $('Route Update').first().json;\nconst j = $input.first().json || {};\nlet ai = typeof j.output === 'string' ? j.output.trim() : '';\nif (!ai) ai = 'Сейчас я не могу ответить. Воспользуйтесь кнопками меню ниже. / Қазір жауап бере алмаймын, мәзір батырмаларын пайдаланыңыз.';\nif (ai.length > 3500) ai = ai.slice(0, 3500) + '…';\nreturn [{ json: { action: 'REPLY', chat_id: route.chat_id, text: ai, keyboard_type: 'main_menu', keyboard: [] } }];"
+      },
+      "id": "e9c4c915-f123-4aec-9b20-011731c06535",
+      "name": "Compose AI Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Прямые ответы роутера: психолог (@neploxo_HQ_bot), помощь, меню, отказ в админ-доступе.\nreturn [{ json: $input.first().json.reply }];"
+      },
+      "id": "431028bf-007c-4431-96b2-1652653da87e",
+      "name": "Direct Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        2816
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Processed Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Processed Update": {
+      "main": [
+        [
+          {
+            "node": "Is New Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Update?": {
+      "main": [
+        [
+          {
+            "node": "Mark Update Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Update Processed": {
+      "main": [
+        [
+          {
+            "node": "Get Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Employee": {
+      "main": [
+        [
+          {
+            "node": "Get Registration Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Registration Session": {
+      "main": [
+        [
+          {
+            "node": "Get Dialog State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Dialog State": {
+      "main": [
+        [
+          {
+            "node": "Get Bot Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Bot Settings": {
+      "main": [
+        [
+          {
+            "node": "Route Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Update": {
+      "main": [
+        [
+          {
+            "node": "Route Target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Target": {
+      "main": [
+        [
+          {
+            "node": "Run Registration",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Shift Engine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run HR & Admin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TUNA AI Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Direct Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Registration": {
+      "main": [
+        [
+          {
+            "node": "Prepare Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Telegram Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Mode": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Admin Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Send Location Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Contact Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Send (No Keyboard)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Buttons 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Buttons 1+1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Buttons 2+1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Buttons 3+2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Buttons 2+2+2+1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Shift Engine": {
+      "main": [
+        [
+          {
+            "node": "Prepare Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run HR & Admin": {
+      "main": [
+        [
+          {
+            "node": "Prepare Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TUNA AI Assistant": {
+      "main": [
+        [
+          {
+            "node": "Compose AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "TUNA AI Assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TUNA Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "TUNA AI Assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose AI Reply": {
+      "main": [
+        [
+          {
+            "node": "Prepare Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Direct Reply": {
+      "main": [
+        [
+          {
+            "node": "Prepare Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "258b834c-1e23-4e37-8722-2e7db05fd29f",
+  "meta": {
+    "instanceId": "b3b64599f7cfd6fc4e99305a6bd3a6f9ffcdd44c96792cea2b8e889b747dc26a"
+  },
+  "nodeGroups": [
+    {
+      "id": "6b5d808f-9b20-4b93-92ff-8b876fbe16ec",
+      "name": "Recognize incoming message",
+      "nodeIds": [
+        "d40a754f-106e-4059-8ded-e850aedd00fd",
+        "f8118595-81d5-4f6f-948c-7aab2102955e",
+        "58016583-68e4-4f57-a5dd-1b4f77a93efb",
+        "bef54728-6aca-48dc-b9d1-93f4995dbf5e",
+        "9e93a107-cd1c-4dac-906a-c94d07dfac0e",
+        "18761946-9d40-4a08-be34-25d5fdfd0264",
+        "6232f557-ba1e-4f3b-b4af-8018b21da683",
+        "9ce03c94-73e0-4708-bc39-5cbdda754447"
+      ],
+      "description": "Skips repeated updates, finds the employee, open dialogs and admin rights, then picks who handles the message"
+    },
+    {
+      "id": "000d3c2d-cd59-4afb-9515-e07292d3ebba",
+      "name": "Handle the request",
+      "nodeIds": [
+        "e2a65097-8a30-42ca-a4a2-ce42100d65eb",
+        "ec2d95f9-c7d0-4208-997e-0bfd7cac06dd",
+        "fa7b556f-471b-4c38-86e7-34035181feaa",
+        "1f894fbd-4e5b-456b-b5e9-066f3013fcea",
+        "a54255a5-461f-4a44-a397-ecbe7a58f068",
+        "7d1d2da5-bde6-424b-ba6b-41956d4af788",
+        "bb08b2f7-b61a-4eb5-a83d-f332e34ca057",
+        "e9c4c915-f123-4aec-9b20-011731c06535",
+        "431028bf-007c-4431-96b2-1652653da87e",
+        "75527b8f-63a6-46de-807e-4850765183a4"
+      ],
+      "description": "Registration, shifts, HR and admin run in code; the assistant only talks. Builds one reply with the right keyboard"
+    },
+    {
+      "id": "fe7ee04f-70a2-4f53-a18d-4e6db40535f4",
+      "name": "Answer in Telegram",
+      "nodeIds": [
+        "f55152b8-9219-4a34-a2de-db7af5737bb5",
+        "8f0b2a2a-1dfd-4919-8507-4e570ba54154",
+        "2e4401e5-73e9-4cdc-aba9-b79d5fe9d33e",
+        "2125ffc2-3268-4a36-8a18-c2cc79bfb9ca",
+        "4f912ad1-60ca-4320-9410-c382dc4fc63c",
+        "cf6cefb7-ec0d-4948-bb51-3a99754ed11c",
+        "52205746-ab4b-4fb3-ad84-566dfbbd67d4",
+        "7b4dd1ba-4026-402b-9b8b-706001574178",
+        "4e980bc5-860f-44dd-83ae-4b11ec799181",
+        "22a618be-90b3-4b7f-9d09-7ec5d6fb7eb2",
+        "56d348fc-1b68-4cce-b724-67de9d24004a"
+      ],
+      "description": "Sends the reply with the menu, location, contact or custom buttons, or removes the keyboard"
+    }
+  ],
+  "id": "EebEHIVb8wppEp3s",
+  "tags": []
+}

@@ -1,0 +1,1747 @@
+{
+  "name": "TUNA – HR & Admin",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## TUNA – HR & Admin\nЗаявки (отпуск, больничный без диагноза, встреча), личные данные сотрудника и админ-операции. Права админа — только по списку admin_telegram_ids в tuna_bot_settings, не по должности. Каждое изменение — через подтверждение и с записью в tuna_admin_audit_log.\n\n**Ограничение:** Data Tables не атомарны: проверка «заявка ещё PENDING» и запись выполняются отдельными шагами, одновременные решения двух админов теоретически возможны. Монеты меняются только через Ledger (идемпотентный ключ).",
+        "color": 3
+      },
+      "id": "819fd5d1-7043-453f-ba3f-c8855871d7c1",
+      "name": "Sticky Note 819fd5d1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "action"
+            },
+            {
+              "name": "telegram_id"
+            },
+            {
+              "name": "chat_id"
+            },
+            {
+              "name": "text"
+            },
+            {
+              "name": "update_id"
+            },
+            {
+              "name": "payload_json"
+            }
+          ]
+        }
+      },
+      "id": "514d0664-f59b-4ed4-8e07-5092239eb277",
+      "name": "HR Admin Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\nconst telegram_id = String(j.telegram_id == null ? '' : j.telegram_id).trim();\nlet payload = {};\nconst raw = j.payload_json;\nif (raw && typeof raw === 'object') payload = raw;\nelse if (raw && String(raw).trim()) { try { payload = JSON.parse(String(raw)) || {}; } catch (e) { payload = {}; } }\nreturn [{ json: {\n  has_id: telegram_id.length > 0,\n  action: String(j.action || '').trim().toUpperCase(),\n  telegram_id,\n  chat_id: String(j.chat_id || telegram_id).trim(),\n  text: String(j.text == null ? '' : j.text).trim(),\n  update_id: String(j.update_id || ''),\n  payload,\n} }];"
+      },
+      "id": "571abade-5a11-43a5-ac78-87eccfa902cc",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b5f9d4cd-1b8c-4b8e-9ab1-92abca6e9d67",
+      "name": "Has Telegram ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "employee_id",
+              "condition": "isNotEmpty"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "7cc67c76-ad83-46ec-add2-8027391cf351",
+      "name": "Get Employees",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "c10639b4-2b62-4222-baef-77446876aac2",
+      "name": "Get Dialog",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5bm4dT3OeK9CrgTz",
+          "cachedResultName": "tuna_bot_settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "setting_key",
+              "condition": "isNotEmpty"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "680d6f2d-03dd-460e-8e37-2f2e153a32aa",
+      "name": "Get Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "J3APm2b385BpfWQI",
+          "cachedResultName": "tuna_fish_transactions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "employee_id",
+              "keyValue": "={{ ($(\"Get Employees\").all().map(i => i.json).find(r => String(r.telegram_id) === $(\"Normalize Input\").first().json.telegram_id && String(r.employee_status).toUpperCase() === \"ACTIVE\") || {}).employee_id || \"__none__\" }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "0aa766f4-98f7-43e3-bf37-8da038aeb65c",
+      "name": "Get My Transactions",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1392,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VMyz46brLNvqjb27",
+          "cachedResultName": "tuna_shifts"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "6edc4a98-4926-4738-99ef-617f4af7a0c3",
+      "name": "Get My Shifts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1616,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0MTLGND5iQK3uVzV",
+          "cachedResultName": "tuna_hr_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "keyValue": "PENDING"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "399fe5e6-c72b-4e06-8060-5ca562953aa9",
+      "name": "Get Pending Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1840,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() { const h = '0123456789abcdef'; let s = ''; for (let i = 0; i < 36; i++) { if (i === 8 || i === 13 || i === 18 || i === 23) { s += '-'; continue; } if (i === 14) { s += '4'; continue; } let r = Math.floor(Math.random() * 16); if (i === 19) r = (r & 3) | 8; s += h[r]; } return s; }\nconst inp = $('Normalize Input').first().json;\nfunction rows(name, key) { return $(name).all().map(function (i) { return i.json; }).filter(function (r) { return r && r[key]; }); }\nconst S = {};\nrows('Get Settings', 'setting_key').forEach(function (r) { S[r.setting_key] = r.setting_value; });\nfunction parseIds(v) {\n  try { const a = JSON.parse(v || '[]'); if (Array.isArray(a)) return a.map(function (x) { return String(x).trim(); }).filter(Boolean); } catch (e) {}\n  return String(v || '').split(/[\\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);\n}\nconst admins = parseIds(S.admin_telegram_ids);\nconst isAdmin = admins.indexOf(inp.telegram_id) >= 0;\nconst tz = S.timezone || 'Asia/Almaty';\nconst now = DateTime.now().setZone(tz);\nconst nowIso = now.toISO();\nconst MAX = Number(S.max_fish_coins) || 100;\nconst employees = rows('Get Employees', 'employee_id');\nconst activeEmps = employees.filter(function (r) { return String(r.employee_status).toUpperCase() === 'ACTIVE'; });\nconst me = activeEmps.find(function (r) { return String(r.telegram_id) === inp.telegram_id; });\nconst dlg = rows('Get Dialog', 'telegram_id')[0];\nlet dlgPayload = {};\nif (dlg) { try { dlgPayload = JSON.parse(dlg.payload_json || '{}') || {}; } catch (e) { dlgPayload = {}; } }\nconst txs = me ? rows('Get My Transactions', 'transaction_id').filter(function (r) { return r.employee_id === me.employee_id && r.tx_status !== 'DUPLICATE_ROLLBACK'; }) : [];\nconst shifts = rows('Get My Shifts', 'shift_id');\nconst pending = rows('Get Pending Requests', 'request_id').filter(function (r) { return r.status === 'PENDING'; });\n\nconst MENU = [['🟢 Начать работу', '🔴 Завершить работу'], ['🐟 Fish Coins', '📊 Моя статистика'], ['🏖 Отпуск', '🤒 Больничный'], ['📅 Встреча', '👤 Мой профиль'], ['🤖 Спросить TUNA']];\nif (isAdmin) MENU.push(['⚙️ Админ-панель']);\nconst ADMIN_KB = [['📋 Заявки на рассмотрении', '👥 Сотрудники'], ['🏠 Главное меню']];\nconst CANCEL_BTN = '❌ Отмена';\nconst SKIP_BTN = 'Пропустить';\nconst YES_BTN = '✅ Да, выполнить';\nconst NO_BTN = '❌ Нет, отменить';\nconst CANCEL_KB = [[CANCEL_BTN]];\nconst SKIP_KB = [[SKIP_BTN], [CANCEL_BTN]];\nconst CONFIRM_KB = [[YES_BTN], [NO_BTN]];\nconst TYPE_LABEL = { VACATION: 'Отпуск', SICK_LEAVE: 'Больничный', MEETING: 'Встреча' };\nconst TX_LABEL = { WELCOME_BONUS: 'Приветственный бонус', SHIFT_BONUS: 'За смену', ACHIEVEMENT: 'Достижение', ADMIN_CREDIT: 'Начисление админом', ADMIN_DEBIT: 'Списание админом' };\n\nfunction esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }\nconst R = { op: 'REPLY_ONLY', result: 'OK', reply: null, dialog: null, request: null, request_update: null, ledger: null, ledger_target_telegram: null, geo: [], reset: null, audit: null, notifications: [] };\nfunction reply(text, kbType, kb) {\n  R.reply = { action: 'REPLY', chat_id: inp.chat_id, text: text, keyboard_type: kbType, keyboard: kb || (kbType === 'main_menu' ? MENU : []) };\n}\nfunction done() { return [{ json: Object.assign({ telegram_id: inp.telegram_id, now_iso: nowIso, is_admin: isAdmin }, R) }]; }\nfunction setDialog(flow, step, payload, minutes) {\n  R.op = 'SET_DIALOG';\n  R.dialog = { flow: flow, step: step, payload_json: JSON.stringify(payload || {}), expires_at: now.plus({ minutes: minutes }).toISO() };\n}\nfunction parseDate(s) {\n  const m = /^(\\d{2})\\.(\\d{2})\\.(\\d{4})$/.exec(String(s || '').trim());\n  if (!m) return null;\n  const dt = DateTime.fromObject({ year: Number(m[3]), month: Number(m[2]), day: Number(m[1]) }, { zone: tz });\n  return dt.isValid ? dt : null;\n}\nfunction parseDateTime(s) {\n  const m = /^(\\d{2})\\.(\\d{2})\\.(\\d{4})\\s+([01]\\d|2[0-3]):([0-5]\\d)$/.exec(String(s || '').trim());\n  if (!m) return null;\n  const dt = DateTime.fromObject({ year: Number(m[3]), month: Number(m[2]), day: Number(m[1]), hour: Number(m[4]), minute: Number(m[5]) }, { zone: tz });\n  return dt.isValid ? dt : null;\n}\nfunction fmtTs(iso) { const d = DateTime.fromISO(String(iso || '')); return d.isValid ? d.setZone(tz).toFormat('dd.MM.yyyy HH:mm') : String(iso || ''); }\nfunction fmtMin(m) { m = Math.round(m || 0); return Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин'; }\n\n// ---------- command parsing ----------\nfunction parseCommand(t) {\n  const s = String(t || '').trim();\n  if (s === '⚙️ Админ-панель' || s === '/admin') return { action: 'ADMIN_MENU', args: {} };\n  if (s === '📋 Заявки на рассмотрении' || s === '/pending') return { action: 'LIST_PENDING', args: {} };\n  if (s === '👥 Сотрудники' || s === '/employees') return { action: 'LIST_EMPLOYEES', args: {} };\n  const parts = s.split(/\\s+/);\n  const cmd = (parts[0] || '').toLowerCase();\n  if (cmd === '/approve' || cmd === '/reject') return { action: cmd === '/approve' ? 'APPROVE_REQUEST' : 'REJECT_REQUEST', args: { request_id: parts[1] || '', comment: parts.slice(2).join(' ') } };\n  if (cmd === '/coins') return { action: 'ADJUST_COINS', args: { tuna_id: parts[1] || '', amount: parts[2] || '', reason: parts.slice(3).join(' ') } };\n  if (cmd === '/achieve') return { action: 'GRANT_ACHIEVEMENT', args: { tuna_id: parts[1] || '', rule_id: parts[2] || '' } };\n  if (cmd === '/geo') return { action: 'SET_GEO', args: { lat: parts[1] || '', lon: parts[2] || '', radius: parts[3] || '' } };\n  if (cmd === '/reset') return { action: 'RESET_PROFILE', args: { tuna_id: parts[1] || '' } };\n  return null;\n}\n\nlet action = inp.action;\nlet params = {};\nif (action === 'ADMIN_COMMAND') {\n  const pc = parseCommand(inp.text);\n  if (pc) { action = pc.action; params = pc.args; } else action = 'UNKNOWN';\n} else {\n  const pc = parseCommand(inp.text);\n  if (pc && pc.action === action) params = pc.args;\n}\nparams = Object.assign({}, params, inp.payload || {});\n\n// ---------- HR dialogs ----------\nconst HR_FLOWS = { VACATION: { type: 'VACATION', first: 'START_DATE' }, SICK: { type: 'SICK_LEAVE', first: 'START_DATE' }, MEETING: { type: 'MEETING', first: 'DATETIME' } };\nfunction hrPrompt(flow, step) {\n  if (flow === 'VACATION') {\n    if (step === 'START_DATE') return { text: '🏖 Заявка на отпуск.\\nВведите дату начала в формате ДД.ММ.ГГГГ.', kb: CANCEL_KB };\n    if (step === 'END_DATE') return { text: 'Введите дату окончания отпуска (ДД.ММ.ГГГГ).', kb: CANCEL_KB };\n    return { text: 'Добавьте комментарий (необязательно) или нажмите «Пропустить».', kb: SKIP_KB };\n  }\n  if (flow === 'SICK') {\n    if (step === 'START_DATE') return { text: '🤒 Больничный.\\nВведите дату начала в формате ДД.ММ.ГГГГ. Диагноз указывать не нужно.', kb: CANCEL_KB };\n    if (step === 'END_DATE') return { text: 'Ожидаемая дата окончания (ДД.ММ.ГГГГ) — или «Пропустить», если пока неизвестно.', kb: SKIP_KB };\n    return { text: 'Комментарий (необязательно). Пожалуйста, не указывайте диагноз — он не нужен.', kb: SKIP_KB };\n  }\n  if (step === 'DATETIME') return { text: '📅 Запрос встречи.\\nВведите желаемые дату и время в формате ДД.ММ.ГГГГ ЧЧ:ММ (например, 20.10.2026 15:00).', kb: CANCEL_KB };\n  return { text: 'Кратко опишите тему встречи.', kb: CANCEL_KB };\n}\nfunction hrHandle(flow, step, t, p) {\n  const today = now.startOf('day');\n  if (flow === 'VACATION') {\n    if (step === 'START_DATE') {\n      const d = parseDate(t);\n      if (!d) return { error: 'Такой даты нет или формат неверный (нужно ДД.ММ.ГГГГ).' };\n      if (d < today) return { error: 'Дата начала отпуска не может быть в прошлом.' };\n      if (d > today.plus({ days: 365 })) return { error: 'Дата начала — не позднее чем через год.' };\n      p.start_date = d.toFormat('dd.MM.yyyy'); return { next: 'END_DATE' };\n    }\n    if (step === 'END_DATE') {\n      const d = parseDate(t); const s = parseDate(p.start_date);\n      if (!d) return { error: 'Такой даты нет или формат неверный (нужно ДД.ММ.ГГГГ).' };\n      if (d < s) return { error: 'Дата окончания раньше даты начала.' };\n      if (d > s.plus({ days: 60 })) return { error: 'Отпуск не может быть длиннее 60 дней в одной заявке.' };\n      p.end_date = d.toFormat('dd.MM.yyyy'); return { next: 'COMMENT' };\n    }\n    if (t !== SKIP_BTN && t.length > 300) return { error: 'Комментарий не длиннее 300 символов.' };\n    p.comment = t === SKIP_BTN ? '' : t; return { submit: true };\n  }\n  if (flow === 'SICK') {\n    if (step === 'START_DATE') {\n      const d = parseDate(t);\n      if (!d) return { error: 'Такой даты нет или формат неверный (нужно ДД.ММ.ГГГГ).' };\n      if (d < today.minus({ days: 30 }) || d > today.plus({ days: 7 })) return { error: 'Дата начала — от 30 дней назад до 7 дней вперёд.' };\n      p.start_date = d.toFormat('dd.MM.yyyy'); return { next: 'END_DATE' };\n    }\n    if (step === 'END_DATE') {\n      if (t === SKIP_BTN) { p.end_date = ''; return { next: 'COMMENT' }; }\n      const d = parseDate(t); const s = parseDate(p.start_date);\n      if (!d) return { error: 'Такой даты нет или формат неверный (нужно ДД.ММ.ГГГГ), либо нажмите «Пропустить».' };\n      if (d < s) return { error: 'Дата окончания раньше даты начала.' };\n      if (d > s.plus({ days: 60 })) return { error: 'Срок не более 60 дней в одной заявке.' };\n      p.end_date = d.toFormat('dd.MM.yyyy'); return { next: 'COMMENT' };\n    }\n    if (t !== SKIP_BTN && t.length > 300) return { error: 'Комментарий не длиннее 300 символов.' };\n    p.comment = t === SKIP_BTN ? '' : t; return { submit: true };\n  }\n  if (step === 'DATETIME') {\n    const d = parseDateTime(t);\n    if (!d) return { error: 'Нужен формат ДД.ММ.ГГГГ ЧЧ:ММ.' };\n    if (d < now) return { error: 'Время встречи должно быть в будущем.' };\n    if (d > now.plus({ days: 60 })) return { error: 'Встречу можно запросить не дальше чем на 60 дней вперёд.' };\n    p.start_date = d.toFormat('dd.MM.yyyy HH:mm'); p.end_date = ''; return { next: 'TOPIC' };\n  }\n  if (t.length < 3 || t.length > 300) return { error: 'Тема — от 3 до 300 символов.' };\n  p.comment = t; return { submit: true };\n}\n\n// ---------- admin operations ----------\nfunction findEmp(tunaId) {\n  const id = String(tunaId || '').trim().toUpperCase();\n  return activeEmps.find(function (r) { return String(r.tuna_id).toUpperCase() === id; });\n}\nfunction validateOp(op, p, nonce) {\n  if (op === 'APPROVE_REQUEST' || op === 'REJECT_REQUEST') {\n    const rid = String(p.request_id || '').trim().toUpperCase();\n    if (!rid) return { error: 'Укажите номер заявки: /approve REQ-XXXXXX [комментарий]' };\n    const req = pending.find(function (r) { return String(r.request_id).toUpperCase() === rid; });\n    if (!req) return { error: 'Заявка ' + esc(rid) + ' не найдена или уже рассмотрена.' };\n    const emp = employees.find(function (e) { return e.employee_id === req.employee_id; }) || {};\n    const status = op === 'APPROVE_REQUEST' ? 'APPROVED' : 'REJECTED';\n    const word = status === 'APPROVED' ? 'одобрена ✅' : 'отклонена ❌';\n    const cmt = String(p.comment || '').trim().slice(0, 300);\n    const period = req.start_date + (req.end_date ? ' — ' + req.end_date : '');\n    return {\n      summary: (status === 'APPROVED' ? 'Одобрить' : 'Отклонить') + ' заявку ' + req.request_id + ' (' + (TYPE_LABEL[req.request_type] || req.request_type) + ', ' + esc(emp.full_name || req.telegram_id) + ', ' + period + ')' + (cmt ? '\\nКомментарий: ' + esc(cmt) : ''),\n      exec: {\n        op: 'DECIDE_REQUEST',\n        request_update: { request_id: req.request_id, status: status, reviewed_at: nowIso, reviewed_by: inp.telegram_id, comment: (req.comment || '') + (cmt ? (req.comment ? ' | ' : '') + 'Админ: ' + cmt : '') },\n        audit: { action: op, target_employee_id: req.employee_id, details: { request_id: req.request_id, before: 'PENDING', after: status, comment: cmt } },\n        notifications: [{ chat_id: req.telegram_id, text: 'Ваша заявка ' + req.request_id + ' (' + (TYPE_LABEL[req.request_type] || req.request_type) + ', ' + period + ') ' + word + '.' + (cmt ? '\\nКомментарий: ' + esc(cmt) : '') }],\n      },\n    };\n  }\n  if (op === 'ADJUST_COINS' || op === 'GRANT_ACHIEVEMENT') {\n    const emp = findEmp(p.tuna_id);\n    if (!emp) return { error: 'Активный сотрудник ' + esc(p.tuna_id || '') + ' не найден. Формат: /coins TUNA-000001 +5 причина' };\n    const bal = Number(emp.fish_coins_balance) || 0;\n    let amount; let type; let reason; let key;\n    if (op === 'ADJUST_COINS') {\n      amount = parseInt(String(p.amount || '').replace(/\\s/g, ''), 10);\n      if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > MAX) return { error: 'Сумма — целое число от -' + MAX + ' до +' + MAX + ', не 0.' };\n      reason = String(p.reason || '').trim();\n      if (reason.length < 3) return { error: 'Укажите причину (минимум 3 символа).' };\n      if (amount > 0 && bal + amount > MAX) return { error: 'Начисление превысит максимум ' + MAX + ' (сейчас ' + bal + ').' };\n      if (amount < 0 && bal + amount < 0) return { error: 'Недостаточно монет для списания (сейчас ' + bal + ').' };\n      type = amount > 0 ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT';\n      key = 'ADMIN:' + nonce;\n    } else {\n      let rules = [];\n      try { rules = JSON.parse(S.achievement_rules || '[]') || []; } catch (e) { rules = []; }\n      const rule = rules.find(function (r) { return String(r.id) === String(p.rule_id || ''); });\n      if (!rule) return { error: 'Правило достижения не найдено. Доступные: ' + (rules.map(function (r) { return r.id; }).join(', ') || 'нет правил (задайте achievement_rules в настройках)') };\n      amount = parseInt(rule.amount, 10);\n      if (!Number.isFinite(amount) || amount <= 0) return { error: 'В правиле указана некорректная сумма.' };\n      type = 'ACHIEVEMENT'; reason = 'Достижение: ' + (rule.name || rule.id);\n      key = rule.repeatable ? 'ACH:' + rule.id + ':' + nonce : 'ACH:' + rule.id + ':' + emp.employee_id;\n    }\n    return {\n      summary: (amount > 0 ? 'Начислить +' : 'Списать ') + amount + ' Fish Coins сотруднику ' + emp.tuna_id + ' (' + esc(emp.full_name) + '), баланс сейчас ' + bal + '.\\nПричина: ' + esc(reason),\n      exec: {\n        op: 'LEDGER',\n        ledger: { employee_id: emp.employee_id, amount: amount, transaction_type: type, reason: reason, initiated_by: 'ADMIN:' + inp.telegram_id, related_shift_id: '', idempotency_key: key },\n        ledger_target_telegram: emp.telegram_id,\n        audit: { action: op, target_employee_id: emp.employee_id, details: { tuna_id: emp.tuna_id, balance_before: bal, amount: amount, transaction_type: type, reason: reason } },\n        notifications: [],\n      },\n    };\n  }\n  if (op === 'SET_GEO') {\n    const lat = Number(String(p.lat || '').replace(',', '.'));\n    const lon = Number(String(p.lon || '').replace(',', '.'));\n    const rad = Number(p.radius);\n    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) return { error: 'Неверные координаты. Формат: /geo 51.161613 71.417481 150' };\n    if (!Number.isFinite(rad) || rad < 20 || rad > 5000) return { error: 'Радиус — от 20 до 5000 метров.' };\n    const before = { lat: S.work_lat, lon: S.work_lon, radius: S.work_radius_m };\n    const after = { lat: String(lat), lon: String(lon), radius: String(Math.round(rad)) };\n    return {\n      summary: 'Изменить рабочую точку: ' + after.lat + ', ' + after.lon + ', радиус ' + after.radius + ' м (было: ' + before.lat + ', ' + before.lon + ', ' + before.radius + ' м).',\n      exec: { op: 'SET_GEO', geo: [{ key: 'work_lat', value: after.lat }, { key: 'work_lon', value: after.lon }, { key: 'work_radius_m', value: after.radius }], audit: { action: op, target_employee_id: '', details: { before: before, after: after } }, notifications: [] },\n    };\n  }\n  if (op === 'RESET_PROFILE') {\n    const emp = findEmp(p.tuna_id);\n    if (!emp) return { error: 'Активный сотрудник ' + esc(p.tuna_id || '') + ' не найден. Формат: /reset TUNA-000001' };\n    return {\n      summary: 'Сбросить профиль ' + emp.tuna_id + ' (' + esc(emp.full_name) + '). Сотруднику нужно будет зарегистрироваться заново; история смен и Fish Coins сохранится, приветственный бонус повторно не начисляется.',\n      exec: { op: 'RESET_PROFILE', reset: { employee_id: emp.employee_id }, audit: { action: op, target_employee_id: emp.employee_id, details: { tuna_id: emp.tuna_id, before: 'ACTIVE', after: 'RESET' } }, notifications: [{ chat_id: emp.telegram_id, text: 'Ваш профиль TUNA сброшен администратором. Отправьте /start, чтобы пройти регистрацию заново. История смен и Fish Coins сохранена.' }] },\n    };\n  }\n  return { error: 'Неизвестная операция.' };\n}\n\nconst EMPLOYEE_ACTIONS = ['MY_COINS', 'MY_STATS', 'MY_PROFILE', 'START_VACATION', 'START_SICK', 'START_MEETING'];\nconst ADMIN_READ = ['ADMIN_MENU', 'LIST_PENDING', 'LIST_EMPLOYEES'];\nconst ADMIN_MUT = ['APPROVE_REQUEST', 'REJECT_REQUEST', 'ADJUST_COINS', 'GRANT_ACHIEVEMENT', 'SET_GEO', 'RESET_PROFILE'];\n\n// ---------- DIALOG_INPUT ----------\nif (action === 'DIALOG_INPUT') {\n  const t = inp.text;\n  if (t === CANCEL_BTN || t === '/cancel' || t === NO_BTN) {\n    R.op = 'CLEAR_DIALOG'; R.result = 'CANCELLED'; reply('Действие отменено.', 'main_menu');\n    return done();\n  }\n  if (!dlg) { R.result = 'NO_DIALOG'; reply('Нет активного действия. Выберите пункт меню.', 'main_menu'); return done(); }\n  const exp = DateTime.fromISO(String(dlg.expires_at || ''));\n  if (!exp.isValid || exp < now) { R.op = 'CLEAR_DIALOG'; R.result = 'EXPIRED'; reply('Время ожидания истекло, начните заново из меню.', 'main_menu'); return done(); }\n  if (dlg.flow === 'ADMIN_CONFIRM') {\n    if (t === YES_BTN) action = 'CONFIRM_YES';\n    else { R.result = 'AWAIT_CONFIRM'; reply('Подтвердите действие кнопкой.\\n\\n' + (dlgPayload.summary || ''), 'reply', CONFIRM_KB); return done(); }\n  } else if (HR_FLOWS[dlg.flow]) {\n    if (!me) { R.op = 'CLEAR_DIALOG'; R.result = 'NOT_REGISTERED'; reply('Вы не зарегистрированы. Отправьте /start.', 'remove'); return done(); }\n    const flow = dlg.flow; const step = dlg.step; const p = dlgPayload;\n    const r = hrHandle(flow, step, t, p);\n    if (r.error) { R.result = 'INVALID_INPUT'; const pr = hrPrompt(flow, step); reply('⚠️ ' + r.error + '\\n\\n' + pr.text, 'reply', pr.kb); return done(); }\n    if (r.next) { setDialog(flow, r.next, p, 30); R.result = 'STEP'; const pr = hrPrompt(flow, r.next); reply(pr.text, 'reply', pr.kb); return done(); }\n    const rid = 'REQ-' + uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase();\n    const type = HR_FLOWS[flow].type;\n    R.op = 'SUBMIT_REQUEST'; R.result = 'SUBMITTED';\n    R.request = { request_id: rid, employee_id: me.employee_id, telegram_id: me.telegram_id, request_type: type, start_date: p.start_date || '', end_date: p.end_date || '', comment: p.comment || '', status: 'PENDING', created_ts: nowIso };\n    const period = (p.start_date || '') + (p.end_date ? ' — ' + p.end_date : '');\n    const adminText = '🆕 Новая заявка ' + rid + '\\nТип: ' + TYPE_LABEL[type] + '\\nСотрудник: ' + esc(me.full_name) + ' (' + me.tuna_id + ', ' + esc(me.position) + ')\\n' + (type === 'MEETING' ? 'Когда: ' : 'Период: ') + period + (p.comment ? '\\n' + (type === 'MEETING' ? 'Тема: ' : 'Комментарий: ') + esc(p.comment) : '') + '\\n\\nОдобрить: /approve ' + rid + '\\nОтклонить: /reject ' + rid + ' причина';\n    R.notifications = admins.map(function (a) { return { chat_id: a, text: adminText }; });\n    reply('✅ Заявка ' + rid + ' (' + TYPE_LABEL[type] + ', ' + period + ') отправлена на рассмотрение. Статус: на рассмотрении. Вы получите уведомление о решении.' + (admins.length ? '' : '\\n\\n⚠️ Администраторы ещё не назначены — заявка сохранена и будет рассмотрена позже.'), 'main_menu');\n    return done();\n  } else {\n    R.result = 'OTHER_FLOW'; reply('Это действие обрабатывается другим разделом. Выберите пункт меню.', 'main_menu'); return done();\n  }\n}\n\nif (action === 'CONFIRM_NO') { R.op = 'CLEAR_DIALOG'; R.result = 'CANCELLED'; reply('Действие отменено.', 'main_menu'); return done(); }\n\nif (action === 'CONFIRM_YES') {\n  if (!dlg || dlg.flow !== 'ADMIN_CONFIRM') { R.result = 'NO_DIALOG'; reply('Нет действия, ожидающего подтверждения.', 'main_menu'); return done(); }\n  const exp = DateTime.fromISO(String(dlg.expires_at || ''));\n  if (!exp.isValid || exp < now) { R.op = 'CLEAR_DIALOG'; R.result = 'EXPIRED'; reply('Время на подтверждение истекло. Повторите команду.', 'main_menu'); return done(); }\n  if (!isAdmin) { R.op = 'CLEAR_DIALOG'; R.result = 'FORBIDDEN'; reply('⛔ Доступ запрещён.', 'main_menu'); return done(); }\n  const v = validateOp(dlgPayload.op, dlgPayload.params || {}, dlgPayload.nonce || uuidv4());\n  if (v.error) { R.op = 'CLEAR_DIALOG'; R.result = 'INVALID'; reply('⚠️ ' + v.error, 'reply', ADMIN_KB); return done(); }\n  Object.assign(R, v.exec);\n  R.result = 'EXECUTED';\n  reply('✅ Выполнено: ' + v.summary, 'reply', ADMIN_KB);\n  return done();\n}\n\nif (EMPLOYEE_ACTIONS.indexOf(action) >= 0) {\n  if (!me) { R.result = 'NOT_REGISTERED'; reply('Вы ещё не зарегистрированы. Отправьте /start, чтобы пройти регистрацию.', 'remove'); return done(); }\n  if (action === 'MY_COINS') {\n    const last = txs.slice().sort(function (a, b) { return String(b.created_ts).localeCompare(String(a.created_ts)); }).slice(0, 5);\n    const lines = last.map(function (t) { const a = Number(t.amount) || 0; return '• ' + fmtTs(t.created_ts) + '  ' + (a > 0 ? '+' : '') + a + '  ' + (TX_LABEL[t.transaction_type] || t.transaction_type) + (t.reason ? ' — ' + esc(t.reason) : ''); });\n    reply('🐟 Ваш баланс: ' + (Number(me.fish_coins_balance) || 0) + ' / ' + MAX + ' Fish Coins\\n\\n' + (lines.length ? 'Последние операции:\\n' + lines.join('\\n') : 'Операций пока нет.') + '\\n\\n+1 монета за каждую завершённую смену с геопроверкой (не более одной в день).', 'main_menu');\n    return done();\n  }\n  if (action === 'MY_STATS') {\n    const mk = now.toFormat('yyyy-MM');\n    const ms = shifts.filter(function (s) { return String(s.work_date || '').indexOf(mk) === 0; });\n    const fin = ms.filter(function (s) { return s.shift_status === 'FINISHED'; });\n    const mins = fin.reduce(function (a, s) { return a + (Number(s.actual_duration_minutes) || 0); }, 0);\n    const late = ms.filter(function (s) { return s.check_in_class === 'LATE'; }).length;\n    const working = shifts.find(function (s) { return s.shift_status === 'WORKING'; });\n    reply('📊 Статистика за ' + now.setLocale('ru').toFormat('LLLL yyyy') + ':\\n• Завершённых смен: ' + fin.length + '\\n• Отработано: ' + fmtMin(mins) + '\\n• Опозданий: ' + late + '\\n• Статус сейчас: ' + (working ? 'на смене с ' + fmtTs(working.check_in_time) : 'не на смене') + '\\n• Fish Coins: ' + (Number(me.fish_coins_balance) || 0), 'main_menu');\n    return done();\n  }\n  if (action === 'MY_PROFILE') {\n    let cfg = {}; try { cfg = JSON.parse(me.schedule_config || '{}') || {}; } catch (e) { cfg = {}; }\n    const sched = (me.schedule_type || '') + (cfg.start && cfg.end ? ', ' + cfg.start + '–' + cfg.end : '') + (cfg.hours_per_day ? ', ' + cfg.hours_per_day + ' ч/день' : '') + (cfg.description ? ', ' + esc(cfg.description) : '');\n    reply('👤 Ваш профиль\\nID: ' + me.tuna_id + '\\nФИО: ' + esc(me.full_name) + '\\nДолжность: ' + esc(me.position) + '\\nОтдел: ' + esc(me.department) + '\\nДата рождения: ' + me.birth_date + '\\nПол: ' + (me.gender || 'не указан') + '\\nТелефон: ' + me.phone + (me.phone_verified ? ' ✅' : '') + '\\nГрафик: ' + sched + '\\nFish Coins: ' + (Number(me.fish_coins_balance) || 0) + '\\nЗарегистрирован: ' + fmtTs(me.registered_at), 'main_menu');\n    return done();\n  }\n  const flow = action === 'START_VACATION' ? 'VACATION' : (action === 'START_SICK' ? 'SICK' : 'MEETING');\n  setDialog(flow, HR_FLOWS[flow].first, {}, 30);\n  R.result = 'DIALOG_STARTED';\n  const pr = hrPrompt(flow, HR_FLOWS[flow].first);\n  reply(pr.text, 'reply', pr.kb);\n  return done();\n}\n\nif (ADMIN_READ.indexOf(action) >= 0 || ADMIN_MUT.indexOf(action) >= 0) {\n  if (!isAdmin) { R.result = 'FORBIDDEN'; reply('⛔ Доступ запрещён. Админ-панель доступна только назначенным администраторам.', 'main_menu'); return done(); }\n  if (action === 'ADMIN_MENU') {\n    reply('⚙️ Админ-панель\\n\\n/pending — заявки на рассмотрении\\n/approve REQ-XXXXXX [комментарий]\\n/reject REQ-XXXXXX [причина]\\n/employees — список сотрудников\\n/coins TUNA-000001 +5 причина (или -3)\\n/achieve TUNA-000001 ID_правила\\n/geo широта долгота радиус_м\\n/reset TUNA-000001 — сброс профиля\\n\\nКаждое изменение требует подтверждения и записывается в журнал.', 'reply', ADMIN_KB);\n    return done();\n  }\n  if (action === 'LIST_PENDING') {\n    const list = pending.slice().sort(function (a, b) { return String(a.created_ts).localeCompare(String(b.created_ts)); }).slice(0, 15);\n    const lines = list.map(function (r) { const e = employees.find(function (x) { return x.employee_id === r.employee_id; }) || {}; return '• ' + r.request_id + ' — ' + (TYPE_LABEL[r.request_type] || r.request_type) + ', ' + esc(e.full_name || r.telegram_id) + ', ' + r.start_date + (r.end_date ? ' — ' + r.end_date : '') + (r.comment ? ' (' + esc(r.comment) + ')' : ''); });\n    reply(lines.length ? '📋 Заявки на рассмотрении (' + pending.length + '):\\n' + lines.join('\\n') + '\\n\\n/approve ID или /reject ID причина' : 'Заявок на рассмотрении нет.', 'reply', ADMIN_KB);\n    return done();\n  }\n  if (action === 'LIST_EMPLOYEES') {\n    const list = activeEmps.slice().sort(function (a, b) { return String(a.tuna_id).localeCompare(String(b.tuna_id)); }).slice(0, 40);\n    const lines = list.map(function (e) { return '• ' + e.tuna_id + ' — ' + esc(e.full_name) + ', ' + esc(e.position) + ', 🐟 ' + (Number(e.fish_coins_balance) || 0); });\n    reply(lines.length ? '👥 Активные сотрудники (' + activeEmps.length + '):\\n' + lines.join('\\n') : 'Активных сотрудников нет.', 'reply', ADMIN_KB);\n    return done();\n  }\n  const nonce = uuidv4();\n  const v = validateOp(action, params, nonce);\n  if (v.error) { R.result = 'INVALID_INPUT'; reply('⚠️ ' + v.error, 'reply', ADMIN_KB); return done(); }\n  setDialog('ADMIN_CONFIRM', 'CONFIRM', { op: action, params: params, nonce: nonce, summary: v.summary }, 10);\n  R.result = 'AWAIT_CONFIRM';\n  reply('Подтвердите действие:\\n\\n' + v.summary, 'reply', CONFIRM_KB);\n  return done();\n}\n\nR.result = 'UNKNOWN_ACTION';\nreply('Не понял запрос. Доступно: 🐟 Fish Coins, 📊 Моя статистика, 👤 Мой профиль, 🏖 Отпуск, 🤒 Больничный, 📅 Встреча.' + (isAdmin ? '\\nАдмину: /admin' : ''), 'main_menu');\nreturn done();"
+      },
+      "id": "f8dbd46b-0603-44df-969a-75eca13e0b0e",
+      "name": "Decide Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2064,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "REPLY_ONLY"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reply"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "SET_DIALOG"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "set_dialog"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "CLEAR_DIALOG"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clear_dialog"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "SUBMIT_REQUEST"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "submit_request"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "DECIDE_REQUEST"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "decide_request"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "LEDGER"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ledger"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "SET_GEO"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "set_geo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "RESET_PROFILE"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reset_profile"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6a8969d3-e270-4465-a553-f840ee9ecc39",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        800,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Decide Action').first().json;\nlet led = null;\ntry { led = $('Call Admin Ledger').first().json; } catch (e) { led = null; }\nconst list = (d.notifications || []).slice();\nif (d.op === 'LEDGER' && led && led.result === 'APPLIED' && d.ledger_target_telegram) {\n  const a = Number(led.applied_amount) || 0;\n  list.push({ chat_id: d.ledger_target_telegram, text: '🐟 Fish Coins: ' + (a > 0 ? '+' : '') + a + '. Баланс: ' + led.balance_after + '.\\nПричина: ' + String((d.ledger || {}).reason || '').replace(/</g, '&lt;') });\n}\nconst items = list.filter(function (n) { return n && n.chat_id && n.text; }).map(function (n) { return { json: { has_chat: true, chat_id: String(n.chat_id), text: n.text } }; });\nreturn items.length ? items : [{ json: { has_chat: false } }];"
+      },
+      "id": "0b050dac-f4c7-486f-9d0e-3488bb84693d",
+      "name": "Prepare Notifications",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2144,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_chat }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "be8602d5-7f74-47e4-ba14-0e244185926d",
+      "name": "Anyone To Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1328,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "c304a743-3dd2-41e5-81d6-731eadf192ec",
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1552,
+        128
+      ],
+      "webhookId": "8d2ba189-e640-4e06-8fa1-5d49230ac78f",
+      "credentials": {
+        "telegramApi": {
+          "id": "DdqAiLWB651SzSls",
+          "name": "Telegram account 17"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Decide Action').first().json;\nconst r = Object.assign({}, d.reply);\nif (d.op === 'LEDGER') {\n  let led = null;\n  try { led = $('Call Admin Ledger').first().json; } catch (e) { led = null; }\n  const LBL = { DUPLICATE: 'эта операция уже была выполнена', CAP_REACHED: 'достигнут максимум баланса', CAP_EXCEEDED: 'начисление превысит максимум', INSUFFICIENT_BALANCE: 'недостаточно монет', EMPLOYEE_NOT_FOUND: 'сотрудник не найден', INVALID_INPUT: 'некорректные данные' };\n  if (!led) r.text += '\\n⚠️ Ledger не вернул результат — проверьте журнал транзакций.';\n  else if (led.result === 'APPLIED') { const a = Number(led.applied_amount) || 0; r.text += '\\nИзменение: ' + (a > 0 ? '+' : '') + a + '. Новый баланс: ' + led.balance_after + '.'; }\n  else r.text = '⚠️ Операция не выполнена: ' + (LBL[led.result] || led.result) + '.';\n  r.coin_result = led ? led.result : 'NO_RESPONSE';\n}\nr.result = d.result;\nreturn [{ json: r }];"
+      },
+      "id": "2cabe51f-ab9b-43ad-a4d5-b42502cac4eb",
+      "name": "Final Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        208
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $json.telegram_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $json.telegram_id }}",
+            "flow": "={{ $json.dialog.flow }}",
+            "step": "={{ $json.dialog.step }}",
+            "payload_json": "={{ $json.dialog.payload_json }}",
+            "expires_at": "={{ $json.dialog.expires_at }}",
+            "last_activity": "={{ $json.now_iso }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "flow",
+              "displayName": "flow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload_json",
+              "displayName": "payload_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expires_at",
+              "displayName": "expires_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_activity",
+              "displayName": "last_activity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "81270e8d-a38f-44c6-9068-54f9bcb77224",
+      "name": "Save Dialog",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e244b842-aa5f-4941-ab2f-22b632e4f359",
+      "name": "Clear Dialog",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        320
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0MTLGND5iQK3uVzV",
+          "cachedResultName": "tuna_hr_requests"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "request_id": "={{ $(\"Decide Action\").first().json.request.request_id }}",
+            "employee_id": "={{ $(\"Decide Action\").first().json.request.employee_id }}",
+            "telegram_id": "={{ $(\"Decide Action\").first().json.request.telegram_id }}",
+            "request_type": "={{ $(\"Decide Action\").first().json.request.request_type }}",
+            "start_date": "={{ $(\"Decide Action\").first().json.request.start_date }}",
+            "end_date": "={{ $(\"Decide Action\").first().json.request.end_date }}",
+            "comment": "={{ $(\"Decide Action\").first().json.request.comment }}",
+            "status": "PENDING",
+            "created_ts": "={{ $(\"Decide Action\").first().json.request.created_ts }}",
+            "reviewed_at": "",
+            "reviewed_by": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "request_id",
+              "displayName": "request_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "request_type",
+              "displayName": "request_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "start_date",
+              "displayName": "start_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "end_date",
+              "displayName": "end_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comment",
+              "displayName": "comment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_ts",
+              "displayName": "created_ts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviewed_by",
+              "displayName": "reviewed_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1a70011-ada2-40c2-a660-08f35dd3d6c0",
+      "name": "Insert HR Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1696,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6ec4fb54-d79e-40fb-bb48-682dd2a7f0d7",
+      "name": "Clear Dialog After Submit",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0MTLGND5iQK3uVzV",
+          "cachedResultName": "tuna_hr_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "request_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.request_update.request_id }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "PENDING"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $(\"Decide Action\").first().json.request_update.status }}",
+            "reviewed_at": "={{ $(\"Decide Action\").first().json.request_update.reviewed_at }}",
+            "reviewed_by": "={{ $(\"Decide Action\").first().json.request_update.reviewed_by }}",
+            "comment": "={{ $(\"Decide Action\").first().json.request_update.comment }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviewed_by",
+              "displayName": "reviewed_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comment",
+              "displayName": "comment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4bd8a513-e1cd-4199-9018-550e016d70a6",
+      "name": "Update Request Status",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        656
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0a134375-1d4b-4a79-803a-5945ac2a3552",
+      "name": "Clear Dialog After Admin Action",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1472,
+        944
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() { const h = '0123456789abcdef'; let s = ''; for (let i = 0; i < 36; i++) { if (i === 8 || i === 13 || i === 18 || i === 23) { s += '-'; continue; } if (i === 14) { s += '4'; continue; } let r = Math.floor(Math.random() * 16); if (i === 19) r = (r & 3) | 8; s += h[r]; } return s; }\nconst d = $('Decide Action').first().json;\nlet led = null;\ntry { led = $('Call Admin Ledger').first().json; } catch (e) { led = null; }\nconst a = d.audit || {};\nconst details = Object.assign({}, a.details || {});\nif (d.op === 'LEDGER') details.ledger_result = led ? { result: led.result, applied_amount: led.applied_amount, balance_after: led.balance_after, transaction_id: led.transaction_id } : { result: 'NO_RESPONSE' };\nreturn [{ json: {\n  audit_id: uuidv4(),\n  admin_telegram_id: d.telegram_id,\n  action: a.action || d.op,\n  target_employee_id: a.target_employee_id || '',\n  details_json: JSON.stringify(details),\n  created_ts: d.now_iso,\n} }];"
+      },
+      "id": "84bc26bf-7a7a-4640-8230-9229ecd522dd",
+      "name": "Build Audit Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Pg6Bvg5uDu0mdWbh",
+          "cachedResultName": "tuna_admin_audit_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "audit_id": "={{ $json.audit_id }}",
+            "admin_telegram_id": "={{ $json.admin_telegram_id }}",
+            "action": "={{ $json.action }}",
+            "target_employee_id": "={{ $json.target_employee_id }}",
+            "details_json": "={{ $json.details_json }}",
+            "created_ts": "={{ $json.created_ts }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "audit_id",
+              "displayName": "audit_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "admin_telegram_id",
+              "displayName": "admin_telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action",
+              "displayName": "action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "target_employee_id",
+              "displayName": "target_employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details_json",
+              "displayName": "details_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_ts",
+              "displayName": "created_ts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d21b84b3-4bc8-46d8-ae45-aaee1987036a",
+      "name": "Insert Audit Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "WARA6Q8BVUq8j8e4",
+          "cachedResultName": "TUNA – Fish Coins Ledger"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "employee_id": "={{ $(\"Decide Action\").first().json.ledger.employee_id }}",
+            "amount": "={{ $(\"Decide Action\").first().json.ledger.amount }}",
+            "transaction_type": "={{ $(\"Decide Action\").first().json.ledger.transaction_type }}",
+            "reason": "={{ $(\"Decide Action\").first().json.ledger.reason }}",
+            "initiated_by": "={{ $(\"Decide Action\").first().json.ledger.initiated_by }}",
+            "related_shift_id": "",
+            "idempotency_key": "={{ $(\"Decide Action\").first().json.ledger.idempotency_key }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "transaction_type",
+              "displayName": "transaction_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "initiated_by",
+              "displayName": "initiated_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "related_shift_id",
+              "displayName": "related_shift_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "5de2aa70-c0e3-4af8-b037-56cfb807ad0d",
+      "name": "Call Admin Ledger",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1248,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return ($('Decide Action').first().json.geo || []).map(function (g) { return { json: g }; });"
+      },
+      "id": "eb90becc-99cd-416d-98c6-80a12f4bc8c0",
+      "name": "Split Geo Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5bm4dT3OeK9CrgTz",
+          "cachedResultName": "tuna_bot_settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "setting_key",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "setting_value": "={{ $json.value }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "setting_value",
+              "displayName": "setting_value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "51bd36f1-12a7-4712-9db9-f13b756b91cb",
+      "name": "Update Geo Setting",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        1040
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "employee_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.reset.employee_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "employee_status": "RESET",
+            "reset_at": "={{ $(\"Decide Action\").first().json.now_iso }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "employee_status",
+              "displayName": "employee_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reset_at",
+              "displayName": "reset_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9086ddd7-95f0-40b5-944d-546927c29830",
+      "name": "Reset Employee Profile",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        1232
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { action: 'NOOP', reason: 'telegram_id is missing' } }];"
+      },
+      "id": "8cde1fdd-99f1-41e6-9195-8dd5692298b1",
+      "name": "NOOP Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HR Admin Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Has Telegram ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Telegram ID?": {
+      "main": [
+        [
+          {
+            "node": "Get Employees",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NOOP Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Employees": {
+      "main": [
+        [
+          {
+            "node": "Get Dialog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Dialog": {
+      "main": [
+        [
+          {
+            "node": "Get Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Settings": {
+      "main": [
+        [
+          {
+            "node": "Get My Transactions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get My Transactions": {
+      "main": [
+        [
+          {
+            "node": "Get My Shifts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get My Shifts": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Requests": {
+      "main": [
+        [
+          {
+            "node": "Decide Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Action": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Dialog",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear Dialog",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert HR Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Request Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Admin Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Geo Settings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reset Employee Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Notifications": {
+      "main": [
+        [
+          {
+            "node": "Anyone To Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anyone To Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification": {
+      "main": [
+        [
+          {
+            "node": "Final Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Dialog": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Dialog": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert HR Request": {
+      "main": [
+        [
+          {
+            "node": "Clear Dialog After Submit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Dialog After Submit": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Request Status": {
+      "main": [
+        [
+          {
+            "node": "Clear Dialog After Admin Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Dialog After Admin Action": {
+      "main": [
+        [
+          {
+            "node": "Build Audit Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Audit Row": {
+      "main": [
+        [
+          {
+            "node": "Insert Audit Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Audit Row": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Admin Ledger": {
+      "main": [
+        [
+          {
+            "node": "Clear Dialog After Admin Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Geo Settings": {
+      "main": [
+        [
+          {
+            "node": "Update Geo Setting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Geo Setting": {
+      "main": [
+        [
+          {
+            "node": "Clear Dialog After Admin Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset Employee Profile": {
+      "main": [
+        [
+          {
+            "node": "Clear Dialog After Admin Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "33d2d4d5-416a-4ed6-be50-6805a4664e58",
+  "meta": {
+    "instanceId": "b3b64599f7cfd6fc4e99305a6bd3a6f9ffcdd44c96792cea2b8e889b747dc26a"
+  },
+  "nodeGroups": [
+    {
+      "id": "2fbfe17c-5a3f-414e-9339-e6ebd4136c5e",
+      "name": "Load employee context",
+      "nodeIds": [
+        "571abade-5a11-43a5-ac78-87eccfa902cc",
+        "b5f9d4cd-1b8c-4b8e-9ab1-92abca6e9d67",
+        "8cde1fdd-99f1-41e6-9195-8dd5692298b1",
+        "7cc67c76-ad83-46ec-add2-8027391cf351",
+        "c10639b4-2b62-4222-baef-77446876aac2",
+        "680d6f2d-03dd-460e-8e37-2f2e153a32aa",
+        "0aa766f4-98f7-43e3-bf37-8da038aeb65c",
+        "6edc4a98-4926-4738-99ef-617f4af7a0c3",
+        "399fe5e6-c72b-4e06-8060-5ca562953aa9",
+        "f8dbd46b-0603-44df-969a-75eca13e0b0e"
+      ],
+      "description": "Checks admin rights by Telegram ID list, reads own profile, coins, shifts, open dialog and pending requests"
+    },
+    {
+      "id": "6096445b-c72a-494b-8aa9-d55c64b55958",
+      "name": "Apply requested change",
+      "nodeIds": [
+        "6a8969d3-e270-4465-a553-f840ee9ecc39",
+        "81270e8d-a38f-44c6-9068-54f9bcb77224",
+        "e244b842-aa5f-4941-ab2f-22b632e4f359",
+        "f1a70011-ada2-40c2-a660-08f35dd3d6c0",
+        "6ec4fb54-d79e-40fb-bb48-682dd2a7f0d7",
+        "4bd8a513-e1cd-4199-9018-550e016d70a6",
+        "5de2aa70-c0e3-4af8-b037-56cfb807ad0d",
+        "eb90becc-99cd-416d-98c6-80a12f4bc8c0",
+        "51bd36f1-12a7-4712-9db9-f13b756b91cb",
+        "9086ddd7-95f0-40b5-944d-546927c29830",
+        "0a134375-1d4b-4a79-803a-5945ac2a3552",
+        "84bc26bf-7a7a-4640-8230-9229ecd522dd",
+        "d21b84b3-4bc8-46d8-ae45-aaee1987036a",
+        "0b050dac-f4c7-486f-9d0e-3488bb84693d"
+      ],
+      "description": "Saves dialog steps, files PENDING requests, or runs confirmed admin changes with an audit record"
+    },
+    {
+      "id": "d8810838-a542-4cc5-bd43-861a022b8d42",
+      "name": "Notify and answer",
+      "nodeIds": [
+        "be8602d5-7f74-47e4-ba14-0e244185926d",
+        "c304a743-3dd2-41e5-81d6-731eadf192ec",
+        "2cabe51f-ab9b-43ad-a4d5-b42502cac4eb"
+      ],
+      "description": "Messages admins about new requests and employees about decisions, then returns the chat reply"
+    }
+  ],
+  "id": "NLKAYcKVTICYSy4x",
+  "tags": []
+}

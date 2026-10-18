@@ -1,0 +1,1512 @@
+{
+  "name": "TUNA – Registration",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## TUNA – Registration\nОдин шаг диалога регистрации за вызов. Черновик хранится в tuna_registration_sessions, поэтому /start продолжает с текущего шага.\n\n**Ограничение:** счётчик tuna_id_counter в tuna_bot_settings не атомарен. Перед выдачей TUNA-ID номер сверяется со всеми существующими tuna_id и при совпадении берётся следующий, но два одновременных подтверждения всё же могут конфликтовать. Должность «Администратор» прав администратора не даёт.",
+        "color": 3
+      },
+      "id": "861d93a9-5175-45e6-98cd-acf408e82963",
+      "name": "Sticky Note 861d93a9",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telegram_id"
+            },
+            {
+              "name": "chat_id"
+            },
+            {
+              "name": "text"
+            },
+            {
+              "name": "contact_json"
+            },
+            {
+              "name": "update_id"
+            },
+            {
+              "name": "first_name"
+            },
+            {
+              "name": "username"
+            }
+          ]
+        }
+      },
+      "id": "230486c3-6ba2-497e-87be-bcee7d97f70f",
+      "name": "Registration Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\nconst telegram_id = String(j.telegram_id == null ? '' : j.telegram_id).trim();\nconst chat_id = String(j.chat_id || telegram_id).trim();\nlet contact = null;\nconst raw = j.contact_json;\nif (raw && typeof raw === 'object') { contact = raw; }\nelse if (raw && String(raw).trim()) { try { contact = JSON.parse(String(raw)); } catch (e) { contact = null; } }\nreturn [{ json: {\n  has_id: telegram_id.length > 0,\n  telegram_id,\n  chat_id,\n  text: String(j.text == null ? '' : j.text).trim(),\n  contact,\n  update_id: String(j.update_id || ''),\n  first_name: String(j.first_name || ''),\n  username: String(j.username || ''),\n} }];"
+      },
+      "id": "530eef39-4e80-43aa-a96a-2992bbb7522e",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "090f2c7b-db47-40f4-a971-1c133ff8d0a7",
+      "name": "Has Telegram ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "8WsdGkwkkMAM0Jkz",
+          "cachedResultName": "tuna_registration_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "c7639451-682c-44ce-bda2-43b6a3045ea0",
+      "name": "Get Session",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "58c6e328-f558-4b10-9681-a6314111c7f6",
+      "name": "Get Employee Rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5bm4dT3OeK9CrgTz",
+          "cachedResultName": "tuna_bot_settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "setting_key",
+              "condition": "isNotEmpty"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "2f9b00b2-6681-43d0-a47a-286b33b43672",
+      "name": "Get Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        128
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const inp = $('Normalize Input').first().json;\nconst sessRows = $('Get Session').all().map(function (i) { return i.json; }).filter(function (r) { return r && r.telegram_id; });\nconst empRows = $('Get Employee Rows').all().map(function (i) { return i.json; }).filter(function (r) { return r && r.telegram_id; });\nconst setRows = $('Get Settings').all().map(function (i) { return i.json; }).filter(function (r) { return r && r.setting_key; });\nconst S = {};\nsetRows.forEach(function (r) { S[r.setting_key] = r.setting_value; });\nfunction parseList(v) { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.map(String) : []; } catch (e) { return []; } }\nconst positions = parseList(S.positions);\nconst departments = parseList(S.departments);\nconst tz = S.timezone || 'Asia/Almaty';\nconst now = DateTime.now().setZone(tz);\nconst nowIso = now.toISO();\nconst MAIN_MENU = [['🟢 Начать работу', '🔴 Завершить работу'], ['🐟 Fish Coins', '📊 Моя статистика'], ['🏖 Отпуск', '🤒 Больничный'], ['📅 Встреча', '👤 Мой профиль'], ['🤖 Спросить TUNA']];\nconst SCHEDULE_TYPES = ['5/2', '2/2', '6/1', 'Гибкий', 'Индивидуальный'];\nconst CONFIRM_BTN = '✅ Подтвердить';\nconst EDIT_BTN = '✏️ Изменить данные';\nfunction chunk(arr, n) { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }\n\nfunction scheduleText(d) {\n  const t = d.schedule_type || '';\n  let s = t;\n  if (d.schedule_start && d.schedule_end) s += ', ' + d.schedule_start + '–' + d.schedule_end + (d.schedule_overnight ? ' (ночная смена)' : '');\n  if (d.first_work_date) s += ', первый рабочий день: ' + d.first_work_date;\n  if (d.hours_per_day) s += ', ' + d.hours_per_day + ' ч/день';\n  if (d.schedule_description) s += ', ' + d.schedule_description;\n  return s;\n}\nfunction summary(d) {\n  return [\n    'Проверьте данные:',\n    '👤 ФИО: ' + d.full_name,\n    '💼 Должность: ' + d.position,\n    '🏢 Отдел: ' + d.department,\n    '🎂 Дата рождения: ' + d.birth_date + ' (' + d.age + ' лет)',\n    '⚧ Пол: ' + (d.gender || 'не указан'),\n    '📱 Телефон: ' + d.phone,\n    '🗓 График: ' + scheduleText(d),\n  ].join('\\n');\n}\nfunction prompt(step, d) {\n  switch (step) {\n    case 'FULL_NAME': return { text: 'Введите ФИО: Фамилия Имя (отчество — по желанию).\\nПример: Иванов Иван Иванович', keyboard_type: 'remove', keyboard: [] };\n    case 'POSITION': return positions.length\n      ? { text: 'Укажите вашу должность — выберите из списка или напишите свою.', keyboard_type: 'reply', keyboard: chunk(positions, 2) }\n      : { text: 'Укажите вашу должность.', keyboard_type: 'remove', keyboard: [] };\n    case 'DEPARTMENT': return departments.length\n      ? { text: 'Выберите ваш отдел или напишите его название.', keyboard_type: 'reply', keyboard: chunk(departments, 2) }\n      : { text: 'Укажите ваш отдел.', keyboard_type: 'remove', keyboard: [] };\n    case 'BIRTH_DATE': return { text: 'Введите дату рождения в формате ДД.ММ.ГГГГ (например, 15.05.1995).', keyboard_type: 'remove', keyboard: [] };\n    case 'GENDER': return { text: 'Укажите пол (необязательно).', keyboard_type: 'reply', keyboard: [['Мужской', 'Женский'], ['Пропустить']] };\n    case 'PHONE': return { text: 'Нажмите кнопку «📱 Отправить номер телефона» ниже. Номер подтверждается через Telegram — вводить его вручную не нужно.', keyboard_type: 'contact', keyboard: [['📱 Отправить номер телефона']] };\n    case 'SCHEDULE_TYPE': return { text: 'Выберите тип графика работы.', keyboard_type: 'reply', keyboard: [['5/2', '2/2', '6/1'], ['Гибкий', 'Индивидуальный']] };\n    case 'SCHED_DESC': return { text: 'Опишите ваш индивидуальный график (например: пн, ср, пт).', keyboard_type: 'remove', keyboard: [] };\n    case 'SCHED_TIME': return { text: 'Введите время начала и окончания смены в формате ЧЧ:ММ-ЧЧ:ММ (например, 09:00-18:00). Для ночной смены: 22:00-07:00.', keyboard_type: 'remove', keyboard: [] };\n    case 'SCHED_FIRST_DATE': return { text: 'Введите дату первого рабочего дня цикла 2/2 в формате ДД.ММ.ГГГГ.', keyboard_type: 'remove', keyboard: [] };\n    case 'SCHED_HOURS': return { text: 'Сколько часов в день вы планируете работать? Введите число от 1 до 24.', keyboard_type: 'remove', keyboard: [] };\n    case 'CONFIRM': return { text: summary(d), keyboard_type: 'reply', keyboard: [[CONFIRM_BTN], [EDIT_BTN]] };\n    default: return { text: 'Введите ФИО: Фамилия Имя (отчество — по желанию).', keyboard_type: 'remove', keyboard: [] };\n  }\n}\nfunction parseDate(s) {\n  const m = /^(\\d{2})\\.(\\d{2})\\.(\\d{4})$/.exec(s);\n  if (!m) return null;\n  const dt = DateTime.fromObject({ year: Number(m[3]), month: Number(m[2]), day: Number(m[1]) }, { zone: tz });\n  return dt.isValid ? dt : null;\n}\nconst L = 'A-Za-zА-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі';\nconst WORD = new RegExp('^[' + L + ']+(-[' + L + ']+)?$');\nconst TIME = /^([01]\\d|2[0-3]):([0-5]\\d)\\s*[-–—]\\s*([01]\\d|2[0-3]):([0-5]\\d)$/;\n\nfunction handle(step, text, d) {\n  const isCmd = text.charAt(0) === '/';\n  switch (step) {\n    case 'FULL_NAME': {\n      const words = text.split(/\\s+/).filter(Boolean);\n      if (isCmd || words.length < 2 || words.length > 4 || !words.every(function (w) { return WORD.test(w); })) return { ok: false, error: 'ФИО должно содержать минимум фамилию и имя, только буквы и дефис.' };\n      d.full_name = words.join(' ');\n      return { ok: true, next: 'POSITION' };\n    }\n    case 'POSITION': {\n      if (isCmd || text.length < 2 || text.length > 60) return { ok: false, error: 'Название должности должно быть от 2 до 60 символов.' };\n      d.position = text;\n      return { ok: true, next: 'DEPARTMENT' };\n    }\n    case 'DEPARTMENT': {\n      if (isCmd || text.length < 2 || text.length > 60) return { ok: false, error: 'Название отдела должно быть от 2 до 60 символов.' };\n      d.department = text;\n      return { ok: true, next: 'BIRTH_DATE' };\n    }\n    case 'BIRTH_DATE': {\n      const dt = parseDate(text);\n      if (!dt) return { ok: false, error: 'Такой даты не существует или формат неверный. Нужен формат ДД.ММ.ГГГГ.' };\n      if (dt > now) return { ok: false, error: 'Дата рождения не может быть в будущем.' };\n      const age = Math.floor(now.diff(dt, 'years').years);\n      if (age < 14 || age > 100) return { ok: false, error: 'Возраст должен быть от 14 до 100 лет (получилось ' + age + ').' };\n      d.birth_date = dt.toFormat('dd.MM.yyyy');\n      d.age = age;\n      return { ok: true, next: 'GENDER' };\n    }\n    case 'GENDER': {\n      if (text === 'Мужской' || text === 'Женский') d.gender = text;\n      else if (text === 'Пропустить') d.gender = '';\n      else return { ok: false, error: 'Выберите вариант кнопкой.' };\n      return { ok: true, next: 'PHONE' };\n    }\n    case 'PHONE': {\n      const c = inp.contact;\n      if (!c || !c.phone_number) return { ok: false, error: 'Номер нужно отправить кнопкой, а не вводить вручную.' };\n      if (String(c.user_id || '') !== String(inp.telegram_id)) return { ok: false, error: 'Этот контакт принадлежит другому человеку. Отправьте свой номер кнопкой ниже.' };\n      let p = String(c.phone_number).replace(/[^\\d+]/g, '');\n      if (p.charAt(0) !== '+') p = '+' + p;\n      d.phone = p;\n      d.phone_verified = true;\n      return { ok: true, next: 'SCHEDULE_TYPE' };\n    }\n    case 'SCHEDULE_TYPE': {\n      if (SCHEDULE_TYPES.indexOf(text) < 0) return { ok: false, error: 'Выберите тип графика кнопкой.' };\n      d.schedule_type = text;\n      delete d.schedule_start; delete d.schedule_end; delete d.schedule_overnight; delete d.first_work_date; delete d.hours_per_day; delete d.schedule_description;\n      if (text === 'Гибкий') return { ok: true, next: 'SCHED_HOURS' };\n      if (text === 'Индивидуальный') return { ok: true, next: 'SCHED_DESC' };\n      return { ok: true, next: 'SCHED_TIME' };\n    }\n    case 'SCHED_DESC': {\n      if (isCmd || text.length < 3 || text.length > 200) return { ok: false, error: 'Описание должно быть от 3 до 200 символов.' };\n      d.schedule_description = text;\n      return { ok: true, next: 'SCHED_TIME' };\n    }\n    case 'SCHED_TIME': {\n      const m = TIME.exec(text);\n      if (!m) return { ok: false, error: 'Неверный формат времени. Пример: 09:00-18:00.' };\n      const st = m[1] + ':' + m[2];\n      const en = m[3] + ':' + m[4];\n      if (st === en) return { ok: false, error: 'Время начала и окончания не должны совпадать.' };\n      d.schedule_start = st;\n      d.schedule_end = en;\n      d.schedule_overnight = en < st;\n      return { ok: true, next: d.schedule_type === '2/2' ? 'SCHED_FIRST_DATE' : 'CONFIRM' };\n    }\n    case 'SCHED_FIRST_DATE': {\n      const dt = parseDate(text);\n      if (!dt) return { ok: false, error: 'Такой даты не существует или формат неверный. Нужен формат ДД.ММ.ГГГГ.' };\n      d.first_work_date = dt.toFormat('dd.MM.yyyy');\n      return { ok: true, next: 'CONFIRM' };\n    }\n    case 'SCHED_HOURS': {\n      const h = Number(text.replace(',', '.'));\n      if (!Number.isFinite(h) || h < 1 || h > 24) return { ok: false, error: 'Введите число от 1 до 24.' };\n      d.hours_per_day = h;\n      return { ok: true, next: 'CONFIRM' };\n    }\n    case 'CONFIRM': {\n      if (text === CONFIRM_BTN) return { ok: true, finalize: true };\n      if (text === EDIT_BTN) return { ok: true, reset: true, next: 'FULL_NAME' };\n      return { ok: false, error: 'Нажмите «' + CONFIRM_BTN + '» или «' + EDIT_BTN + '».' };\n    }\n    default:\n      return { ok: true, next: 'FULL_NAME' };\n  }\n}\n\nfunction makeReply(p, extra) {\n  return Object.assign({ action: 'REPLY', chat_id: inp.chat_id, text: p.text, keyboard_type: p.keyboard_type, keyboard: p.keyboard, registration_complete: false, employee_id: null, tuna_id: null, welcome_bonus_result: null }, extra || {});\n}\n\nconst active = empRows.find(function (r) { return String(r.employee_status || '').toUpperCase() === 'ACTIVE'; });\nconst welcomeAlready = empRows.some(function (r) { return r.welcome_bonus_granted === true || String(r.welcome_bonus_granted) === 'true'; });\nconst sess = sessRows[0];\nif (active && sess) {\n  // Профиль уже создан, но регистрация не была завершена (сбой после записи профиля).\n  // Безопасно доводим до конца: без нового профиля и нового TUNA-ID; бонус идемпотентен.\n  return [{ json: {\n    op: 'FINALIZE', existing: true,\n    existing_employee_id: active.employee_id, existing_tuna_id: active.tuna_id,\n    telegram_id: inp.telegram_id, chat_id: inp.chat_id, draft: (function () { try { return JSON.parse(sess.draft_json || '{}') || {}; } catch (e) { return {}; } })(),\n    counter: S.tuna_id_counter || '0', welcome_already: welcomeAlready,\n    timezone: tz, now_iso: nowIso, main_menu: MAIN_MENU,\n  } }];\n}\nif (active) {\n  const prof = ['✅ Вы уже зарегистрированы.', '🆔 ID: ' + active.tuna_id, '👤 ' + (active.full_name || ''), '💼 ' + (active.position || '') + ' · ' + (active.department || ''), '🐟 Fish Coins: ' + (active.fish_coins_balance == null ? 0 : active.fish_coins_balance)].join('\\n');\n  return [{ json: { op: 'REPLY_ONLY', reply: makeReply({ text: prof + '\\n\\nВыберите действие в меню ниже.', keyboard_type: 'main_menu', keyboard: MAIN_MENU }, { registration_complete: true, employee_id: active.employee_id, tuna_id: active.tuna_id, result: 'ALREADY_REGISTERED' }) } }];\n}\nfunction missingStep(d) {\n  if (!d.full_name) return 'FULL_NAME';\n  if (!d.position) return 'POSITION';\n  if (!d.department) return 'DEPARTMENT';\n  if (!d.birth_date) return 'BIRTH_DATE';\n  if (!d.phone || !d.phone_verified) return 'PHONE';\n  const t = d.schedule_type;\n  if (SCHEDULE_TYPES.indexOf(t) < 0) return 'SCHEDULE_TYPE';\n  if (t === 'Гибкий') return d.hours_per_day ? null : 'SCHED_HOURS';\n  if (t === 'Индивидуальный' && !d.schedule_description) return 'SCHED_DESC';\n  if (!d.schedule_start || !d.schedule_end) return 'SCHED_TIME';\n  if (t === '2/2' && !d.first_work_date) return 'SCHED_FIRST_DATE';\n  return null;\n}\n\nlet step;\nlet draft = {};\nlet startedAt = nowIso;\nlet text = '';\nlet resultCode = 'STEP';\n\nif (!sess) {\n  step = 'FULL_NAME';\n  text = 'Добро пожаловать в TUNA HR! Давайте зарегистрируемся — это займёт пару минут.\\n\\n' + prompt(step, draft).text;\n  resultCode = 'STARTED';\n} else {\n  step = sess.step || 'FULL_NAME';\n  try { draft = JSON.parse(sess.draft_json || '{}') || {}; } catch (e) { draft = {}; }\n  startedAt = sess.started_at || nowIso;\n  const t = inp.text;\n  if ((t === '/start' || t === '/register') && !inp.contact) {\n    text = 'Продолжаем регистрацию с того места, где вы остановились.\\n\\n' + prompt(step, draft).text;\n    resultCode = 'RESUMED';\n  } else {\n    const r = handle(step, t, draft);\n    if (!r.ok) {\n      text = '⚠️ ' + r.error + '\\n\\n' + prompt(step, draft).text;\n      resultCode = 'INVALID_INPUT';\n    } else if (r.finalize && missingStep(draft)) {\n      step = missingStep(draft);\n      text = '⚠️ В анкете не хватает данных. Заполните, пожалуйста, этот пункт.\\n\\n' + prompt(step, draft).text;\n      resultCode = 'INCOMPLETE_DRAFT';\n    } else if (r.finalize) {\n      return [{ json: {\n        existing: false,\n        op: 'FINALIZE',\n        telegram_id: inp.telegram_id,\n        chat_id: inp.chat_id,\n        draft,\n        counter: S.tuna_id_counter || '0',\n        welcome_already: welcomeAlready,\n        timezone: tz,\n        now_iso: nowIso,\n        main_menu: MAIN_MENU,\n      } }];\n    } else {\n      if (r.reset) { draft = {}; text = 'Хорошо, заполним данные заново.\\n\\n'; resultCode = 'EDIT'; }\n      step = r.next;\n      text += prompt(step, draft).text;\n    }\n  }\n}\n\nconst p = prompt(step, draft);\nreturn [{ json: {\n  op: 'SAVE_SESSION',\n  telegram_id: inp.telegram_id,\n  step,\n  draft_json: JSON.stringify(draft),\n  started_at: startedAt,\n  last_activity: nowIso,\n  reply: makeReply({ text, keyboard_type: p.keyboard_type, keyboard: p.keyboard }, { result: resultCode, step }),\n} }];"
+      },
+      "id": "225eeb89-4ff0-4494-b6f8-e22062160b92",
+      "name": "Process Step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "SAVE_SESSION"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "save"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "FINALIZE"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "finalize"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "REPLY_ONLY"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reply"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "da805238-9dfe-459d-b3a5-5f0cacbea189",
+      "name": "Route Outcome",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        800,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "8WsdGkwkkMAM0Jkz",
+          "cachedResultName": "tuna_registration_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $json.telegram_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $json.telegram_id }}",
+            "step": "={{ $json.step }}",
+            "draft_json": "={{ $json.draft_json }}",
+            "started_at": "={{ $json.started_at }}",
+            "last_activity": "={{ $json.last_activity }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "draft_json",
+              "displayName": "draft_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_activity",
+              "displayName": "last_activity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bc2d567e-0274-4e29-b380-eb7ce757431b",
+      "name": "Save Session",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Process Step').first().json.reply }];"
+      },
+      "id": "723b93db-8d04-45bd-9450-c259c3effeb6",
+      "name": "Step Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "tuna_id",
+              "condition": "isNotEmpty"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "4bccc196-16cf-4408-b987-1a18952f8b3d",
+      "name": "Get Existing TUNA IDs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        320
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() { const h = '0123456789abcdef'; let s = ''; for (let i = 0; i < 36; i++) { if (i === 8 || i === 13 || i === 18 || i === 23) { s += '-'; continue; } if (i === 14) { s += '4'; continue; } let r = Math.floor(Math.random() * 16); if (i === 19) r = (r & 3) | 8; s += h[r]; } return s; }\nconst d = $('Process Step').first().json;\nconst draft = d.draft || {};\nconst rows = $input.all().map(function (i) { return i.json; }).filter(function (r) { return r && r.tuna_id; });\nconst taken = new Set(rows.map(function (r) { return String(r.tuna_id); }));\nlet counter = parseInt(String(d.counter || '0'), 10);\nif (!Number.isFinite(counter) || counter < 0) counter = 0;\n// Counter is not atomic: also respect the highest ID already stored and skip any taken number.\nrows.forEach(function (r) { const m = /^TUNA-(\\d+)$/.exec(String(r.tuna_id)); if (m) counter = Math.max(counter, parseInt(m[1], 10)); });\nfunction fmt(n) { return 'TUNA-' + String(n).padStart(6, '0'); }\nlet n = counter + 1;\nwhile (taken.has(fmt(n))) n++;\nconst scheduleConfig = {\n  type: draft.schedule_type || '',\n  start: draft.schedule_start || null,\n  end: draft.schedule_end || null,\n  overnight: !!draft.schedule_overnight,\n  first_work_date: draft.first_work_date || null,\n  hours_per_day: draft.hours_per_day || null,\n  description: draft.schedule_description || null,\n  timezone: d.timezone,\n};\nconst isNew = !d.existing;\nreturn [{ json: {\n  is_new: isNew,\n  employee_id: isNew ? uuidv4() : String(d.existing_employee_id),\n  tuna_id: isNew ? fmt(n) : String(d.existing_tuna_id),\n  new_counter: isNew ? String(n) : String(counter),\n  telegram_id: d.telegram_id,\n  chat_id: d.chat_id,\n  full_name: draft.full_name || '',\n  position: draft.position || '',\n  department: draft.department || '',\n  birth_date: draft.birth_date || '',\n  gender: draft.gender || '',\n  phone: draft.phone || '',\n  schedule_type: draft.schedule_type || '',\n  schedule_config: JSON.stringify(scheduleConfig),\n  schedule_id: uuidv4(),\n  registered_at: d.now_iso,\n  welcome_already: !!d.welcome_already,\n  grant_welcome: !d.welcome_already,\n  main_menu: d.main_menu,\n} }];"
+      },
+      "id": "aa154520-2d1c-4cd0-873a-8fd624ef9f8b",
+      "name": "Generate Identity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        320
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_new }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8af166ed-8230-49ee-a21a-6575a68205a5",
+      "name": "Is New Profile?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1248,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "employee_id": "={{ $json.employee_id }}",
+            "tuna_id": "={{ $json.tuna_id }}",
+            "telegram_id": "={{ $json.telegram_id }}",
+            "full_name": "={{ $json.full_name }}",
+            "position": "={{ $json.position }}",
+            "department": "={{ $json.department }}",
+            "birth_date": "={{ $json.birth_date }}",
+            "gender": "={{ $json.gender }}",
+            "phone": "={{ $json.phone }}",
+            "phone_verified": true,
+            "schedule_type": "={{ $json.schedule_type }}",
+            "schedule_config": "={{ $json.schedule_config }}",
+            "fish_coins_balance": 0,
+            "employee_status": "ACTIVE",
+            "welcome_bonus_granted": "={{ $json.welcome_already }}",
+            "registered_at": "={{ $json.registered_at }}",
+            "reset_at": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tuna_id",
+              "displayName": "tuna_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "position",
+              "displayName": "position",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "department",
+              "displayName": "department",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "birth_date",
+              "displayName": "birth_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gender",
+              "displayName": "gender",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone_verified",
+              "displayName": "phone_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "schedule_type",
+              "displayName": "schedule_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "schedule_config",
+              "displayName": "schedule_config",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fish_coins_balance",
+              "displayName": "fish_coins_balance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "employee_status",
+              "displayName": "employee_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "welcome_bonus_granted",
+              "displayName": "welcome_bonus_granted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "registered_at",
+              "displayName": "registered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reset_at",
+              "displayName": "reset_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7ac38b35-a807-4e22-8074-266d642f7521",
+      "name": "Insert Employee",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1472,
+        320
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ryhwl6p9TWlHDmn8",
+          "cachedResultName": "tuna_work_schedules"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_id": "={{ $(\"Generate Identity\").first().json.schedule_id }}",
+            "employee_id": "={{ $(\"Generate Identity\").first().json.employee_id }}",
+            "schedule_type": "={{ $(\"Generate Identity\").first().json.schedule_type }}",
+            "config_json": "={{ $(\"Generate Identity\").first().json.schedule_config }}",
+            "valid_from": "={{ $(\"Generate Identity\").first().json.registered_at }}",
+            "active": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_id",
+              "displayName": "schedule_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "schedule_type",
+              "displayName": "schedule_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "config_json",
+              "displayName": "config_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "valid_from",
+              "displayName": "valid_from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "active",
+              "displayName": "active",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "319f9561-60f6-4168-ad51-e80dad4d96ec",
+      "name": "Insert Schedule",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1696,
+        320
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5bm4dT3OeK9CrgTz",
+          "cachedResultName": "tuna_bot_settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "setting_key",
+              "keyValue": "tuna_id_counter"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "setting_value": "={{ $(\"Generate Identity\").first().json.new_counter }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "setting_value",
+              "displayName": "setting_value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e98bf2d7-302d-444c-8134-4d99c9872e02",
+      "name": "Update ID Counter",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        320
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $(\"Generate Identity\").first().json.grant_welcome }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "640736e4-8e68-4bd7-84d8-a615311cb826",
+      "name": "Grant Welcome Bonus?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1328,
+        208
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $input.first().json.reply }];"
+      },
+      "id": "23cb5417-8cac-4ea1-8fa8-ef742082e76a",
+      "name": "Already Registered Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { action: 'NOOP', reason: 'telegram_id is missing' } }];"
+      },
+      "id": "0bb5995c-f03f-472a-bd40-c76c6cce6369",
+      "name": "NOOP Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "WARA6Q8BVUq8j8e4",
+          "cachedResultName": "TUNA – Fish Coins Ledger"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "employee_id": "={{ $(\"Generate Identity\").first().json.employee_id }}",
+            "amount": 1,
+            "transaction_type": "WELCOME_BONUS",
+            "reason": "Приветственный бонус за регистрацию",
+            "initiated_by": "SYSTEM",
+            "related_shift_id": "",
+            "idempotency_key": "=WELCOME:{{ $(\"Generate Identity\").first().json.telegram_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "transaction_type",
+              "displayName": "transaction_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "initiated_by",
+              "displayName": "initiated_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "related_shift_id",
+              "displayName": "related_shift_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "1e64d2f7-a7fd-4ab1-a5d8-3e67914a4205",
+      "name": "Call Welcome Ledger",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1552,
+        128
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "8WsdGkwkkMAM0Jkz",
+          "cachedResultName": "tuna_registration_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Generate Identity\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "35a7d4df-9ef6-4bb3-a182-180eee920b25",
+      "name": "Close Session",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2144,
+        320
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const g = $('Generate Identity').first().json;\nlet w = null;\ntry { w = $('Call Welcome Ledger').first().json; } catch (e) { w = null; }\nlet bonusText = '';\nlet bonus = null;\nif (w) {\n  bonus = { ok: w.ok, result: w.result, applied_amount: w.applied_amount, balance_after: w.balance_after, transaction_id: w.transaction_id };\n  if (w.result === 'APPLIED') bonusText = '\\n\\n🐟 Приветственный бонус: +1 Fish Coin. Баланс: ' + w.balance_after + '.';\n  else if (w.result === 'DUPLICATE') bonusText = '\\n\\nПриветственный бонус уже был начислен ранее.';\n  else bonusText = '\\n\\nПриветственный бонус не начислен (' + w.result + ').';\n} else {\n  bonus = { ok: true, result: 'SKIPPED_ALREADY_GRANTED', applied_amount: 0 };\n  bonusText = '\\n\\nПриветственный бонус уже был начислен ранее.';\n}\nreturn [{ json: {\n  action: 'REPLY',\n  chat_id: g.chat_id,\n  text: '✅ Регистрация завершена!\\nВаш ID: ' + g.tuna_id + bonusText + '\\n\\nВыберите действие в меню ниже.',\n  keyboard_type: 'main_menu',\n  keyboard: g.main_menu,\n  registration_complete: true,\n  employee_id: g.employee_id,\n  tuna_id: g.tuna_id,\n  welcome_bonus_result: bonus,\n  result: 'REGISTERED',\n} }];"
+      },
+      "id": "ea7547ce-629c-46aa-9440-b34eba9ea836",
+      "name": "Registration Complete Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Диагностика сбоя регистрации. Без персональных данных анкеты (ФИО, телефон, дата рождения).\nconst j = $input.first().json || {};\nconst e = j.error;\nlet message = '';\nlet type = 'Error';\nif (e && typeof e === 'object') { message = String(e.message || e.description || JSON.stringify(e)); type = String(e.name || e.type || 'Error'); }\nelse if (e) { message = String(e); }\nelse { message = String(j.message || 'unknown error'); }\nconst m = /(\\w*Error)\\b/.exec(message);\nif (m) type = m[1];\nlet tg = '';\ntry { tg = String($('Normalize Input').first().json.telegram_id || ''); } catch (x) { tg = ''; }\nlet chat = tg;\ntry { chat = String($('Normalize Input').first().json.chat_id || tg); } catch (x) {}\nconst node = String($prevNode && $prevNode.name ? $prevNode.name : 'unknown');\nconst STAGES = { 'Generate Identity': 'GENERATE_ID', 'Insert Employee': 'SAVE_PROFILE', 'Insert Schedule': 'SAVE_SCHEDULE', 'Update ID Counter': 'UPDATE_COUNTER', 'Call Welcome Ledger': 'WELCOME_BONUS', 'Close Session': 'CLEAR_SESSION' };\nreturn [{ json: {\n  workflow_name: 'TUNA – Registration',\n  node_name: node,\n  stage: STAGES[node] || 'FINALIZE',\n  error_type: type.slice(0, 80),\n  error_message: message.replace(/\\+?\\d[\\d\\s()-]{8,}\\d/g, '[phone]').slice(0, 500),\n  telegram_id: tg,\n  chat_id: chat,\n  execution_id: String($execution.id),\n  occurred_at: DateTime.now().setZone('Asia/Almaty').toISO(),\n} }];"
+      },
+      "id": "dc56afc5-b5a9-4d70-ad0a-616d8e86765f",
+      "name": "Build Error Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2816,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "b8bGUNR2zBUfCnj1",
+          "cachedResultName": "tuna_error_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow_name": "={{ $json.workflow_name }}",
+            "node_name": "={{ $json.node_name }}",
+            "stage": "={{ $json.stage }}",
+            "error_type": "={{ $json.error_type }}",
+            "error_message": "={{ $json.error_message }}",
+            "telegram_id": "={{ $json.telegram_id }}",
+            "execution_id": "={{ $json.execution_id }}",
+            "occurred_at": "={{ $json.occurred_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow_name",
+              "displayName": "workflow_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "node_name",
+              "displayName": "node_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stage",
+              "displayName": "stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_type",
+              "displayName": "error_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "occurred_at",
+              "displayName": "occurred_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d26fed1a-1733-4751-b5c9-f9c09cf486d8",
+      "name": "Insert Error Log",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3040,
+        640
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Build Error Record').first().json;\nreturn [{ json: {\n  action: 'REPLY',\n  chat_id: r.chat_id,\n  text: '⚠️ Не удалось завершить регистрацию (этап: ' + r.stage + '). Ваши данные сохранены — нажмите «✅ Подтвердить» ещё раз чуть позже. Код ошибки: ' + r.execution_id,\n  keyboard_type: 'reply',\n  keyboard: [['✅ Подтвердить'], ['✏️ Изменить данные']],\n  registration_complete: false,\n  employee_id: null,\n  tuna_id: null,\n  welcome_bonus_result: null,\n  result: 'FINALIZE_ERROR',\n  error_stage: r.stage,\n} }];"
+      },
+      "id": "70b5c014-53ec-4690-af9f-3baff1ab1384",
+      "name": "Error Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3264,
+        640
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Registration Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Has Telegram ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Telegram ID?": {
+      "main": [
+        [
+          {
+            "node": "Get Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NOOP Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Session": {
+      "main": [
+        [
+          {
+            "node": "Get Employee Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Employee Rows": {
+      "main": [
+        [
+          {
+            "node": "Get Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Settings": {
+      "main": [
+        [
+          {
+            "node": "Process Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Step": {
+      "main": [
+        [
+          {
+            "node": "Route Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Outcome": {
+      "main": [
+        [
+          {
+            "node": "Save Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Existing TUNA IDs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already Registered Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Session": {
+      "main": [
+        [
+          {
+            "node": "Step Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing TUNA IDs": {
+      "main": [
+        [
+          {
+            "node": "Generate Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Identity": {
+      "main": [
+        [
+          {
+            "node": "Is New Profile?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Profile?": {
+      "main": [
+        [
+          {
+            "node": "Insert Employee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Grant Welcome Bonus?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Employee": {
+      "main": [
+        [
+          {
+            "node": "Insert Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Schedule": {
+      "main": [
+        [
+          {
+            "node": "Update ID Counter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update ID Counter": {
+      "main": [
+        [
+          {
+            "node": "Grant Welcome Bonus?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grant Welcome Bonus?": {
+      "main": [
+        [
+          {
+            "node": "Call Welcome Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Close Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Welcome Ledger": {
+      "main": [
+        [
+          {
+            "node": "Close Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close Session": {
+      "main": [
+        [
+          {
+            "node": "Registration Complete Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error Record": {
+      "main": [
+        [
+          {
+            "node": "Insert Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Error Log": {
+      "main": [
+        [
+          {
+            "node": "Error Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "23324052-15bf-48be-8820-385ce3f43499",
+  "meta": {
+    "instanceId": "b3b64599f7cfd6fc4e99305a6bd3a6f9ffcdd44c96792cea2b8e889b747dc26a"
+  },
+  "nodeGroups": [
+    {
+      "id": "c8f03d09-7043-4f6c-98ab-a74dbf1c948a",
+      "name": "Validate dialog answer",
+      "nodeIds": [
+        "530eef39-4e80-43aa-a96a-2992bbb7522e",
+        "090f2c7b-db47-40f4-a971-1c133ff8d0a7",
+        "0bb5995c-f03f-472a-bd40-c76c6cce6369",
+        "c7639451-682c-44ce-bda2-43b6a3045ea0",
+        "58c6e328-f558-4b10-9681-a6314111c7f6",
+        "2f9b00b2-6681-43d0-a47a-286b33b43672",
+        "225eeb89-4ff0-4494-b6f8-e22062160b92",
+        "da805238-9dfe-459d-b3a5-5f0cacbea189"
+      ],
+      "description": "Loads saved progress and settings, checks the answer for the current step; no Telegram user means no-op"
+    },
+    {
+      "id": "fe7f78bb-fae6-4a8b-b207-86ccb76d1d2e",
+      "name": "Save dialog progress",
+      "nodeIds": [
+        "bc2d567e-0274-4e29-b380-eb7ce757431b",
+        "723b93db-8d04-45bd-9450-c259c3effeb6"
+      ],
+      "description": "Stores the next step and draft so /start resumes where the person stopped"
+    },
+    {
+      "id": "58e46d42-bdc0-4d5f-9d53-817f068ede89",
+      "name": "Finalize registration",
+      "nodeIds": [
+        "4bccc196-16cf-4408-b987-1a18952f8b3d",
+        "aa154520-2d1c-4cd0-873a-8fd624ef9f8b",
+        "8af166ed-8230-49ee-a21a-6575a68205a5",
+        "7ac38b35-a807-4e22-8074-266d642f7521",
+        "319f9561-60f6-4168-ad51-e80dad4d96ec",
+        "e98bf2d7-302d-444c-8134-4d99c9872e02",
+        "640736e4-8e68-4bd7-84d8-a615311cb826",
+        "1e64d2f7-a7fd-4ab1-a5d8-3e67914a4205",
+        "35a7d4df-9ef6-4bb3-a182-180eee920b25",
+        "ea7547ce-629c-46aa-9440-b34eba9ea836",
+        "dc56afc5-b5a9-4d70-ad0a-616d8e86765f",
+        "d26fed1a-1733-4751-b5c9-f9c09cf486d8",
+        "70b5c014-53ec-4690-af9f-3baff1ab1384"
+      ],
+      "description": "Creates profile and TUNA ID once, +1 welcome coin once, clears the draft; failures are logged without form data"
+    }
+  ],
+  "id": "JUEB6ral4DIkIZWS",
+  "tags": []
+}

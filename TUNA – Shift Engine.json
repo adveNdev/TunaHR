@@ -1,0 +1,1613 @@
+{
+  "name": "TUNA – Shift Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## TUNA – Shift Engine\nНачало/завершение смены только после свежей геолокации (Haversine, радиус из tuna_bot_settings, по умолчанию 51.161613, 71.417481, 150 м). Время — серверное, Asia/Almaty.\n\n**Ограничение:** Data Tables не атомарны. Проверки «нет активной смены» и «одна монета в день» выполняются чтением перед записью, поэтому два одновременных запроса теоретически могут пройти оба. Повторное начисление монеты дополнительно защищено ключом идемпотентности в Ledger.",
+        "color": 3
+      },
+      "id": "d5a48c1b-2b8b-4177-a691-c1daf3a1dc71",
+      "name": "Sticky Note d5a48c1b",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "action"
+            },
+            {
+              "name": "telegram_id"
+            },
+            {
+              "name": "chat_id"
+            },
+            {
+              "name": "update_id"
+            },
+            {
+              "name": "location_json"
+            },
+            {
+              "name": "message_date",
+              "type": "number"
+            },
+            {
+              "name": "is_forwarded",
+              "type": "boolean"
+            }
+          ]
+        }
+      },
+      "id": "9fb6d62f-e3d5-4d23-a61c-854d4365ce21",
+      "name": "Shift Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\nconst ACTIONS = ['REQUEST_CHECK_IN', 'REQUEST_CHECK_OUT', 'LOCATION', 'CANCEL'];\nconst telegram_id = String(j.telegram_id == null ? '' : j.telegram_id).trim();\nconst action = String(j.action || '').trim().toUpperCase();\nlet location = null;\nconst raw = j.location_json;\nif (raw && typeof raw === 'object') location = raw;\nelse if (raw && String(raw).trim()) { try { location = JSON.parse(String(raw)); } catch (e) { location = null; } }\nconst fw = j.is_forwarded === true || String(j.is_forwarded).toLowerCase() === 'true';\nreturn [{ json: {\n  valid: telegram_id.length > 0 && ACTIONS.indexOf(action) >= 0,\n  action,\n  telegram_id,\n  chat_id: String(j.chat_id || telegram_id).trim(),\n  update_id: String(j.update_id || ''),\n  location,\n  message_date: Number(j.message_date) || 0,\n  is_forwarded: fw,\n} }];"
+      },
+      "id": "c8fc0813-7e18-47ac-b36f-19dd3771ede6",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8568e5d1-223c-4f6b-bcfc-d3ff4b8f9f94",
+      "name": "Valid Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "zqwkCxTSGuuFmovM",
+          "cachedResultName": "tuna_employees"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            },
+            {
+              "keyName": "employee_status",
+              "keyValue": "ACTIVE"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "72a43ee1-cf0b-49d6-b76f-3f600d074d13",
+      "name": "Get Employee",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ryhwl6p9TWlHDmn8",
+          "cachedResultName": "tuna_work_schedules"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "employee_id",
+              "keyValue": "={{ $(\"Get Employee\").first().json.employee_id || \"__none__\" }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "bfc2fb26-8ef2-43c5-9d1e-12d61c98fca3",
+      "name": "Get Schedule",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VMyz46brLNvqjb27",
+          "cachedResultName": "tuna_shifts"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            },
+            {
+              "keyName": "shift_status",
+              "keyValue": "WORKING"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "af8fc1e0-0c96-4792-a40d-a1c2330b4c38",
+      "name": "Get Active Shift",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VMyz46brLNvqjb27",
+          "cachedResultName": "tuna_shifts"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            },
+            {
+              "keyName": "source_update_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.update_id || \"__none__\" }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "36cc66f4-8a40-416e-9785-fab2d510780b",
+      "name": "Get Shift By Update",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1392,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Normalize Input\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "66800741-bb7e-48a7-8467-106e046a78c9",
+      "name": "Get Geo Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1616,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "5bm4dT3OeK9CrgTz",
+          "cachedResultName": "tuna_bot_settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "setting_key",
+              "condition": "isNotEmpty"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "a1e4f2bd-d8b3-4a4a-a978-0401b75e0fe2",
+      "name": "Get Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1840,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidv4() { const h = '0123456789abcdef'; let s = ''; for (let i = 0; i < 36; i++) { if (i === 8 || i === 13 || i === 18 || i === 23) { s += '-'; continue; } if (i === 14) { s += '4'; continue; } let r = Math.floor(Math.random() * 16); if (i === 19) r = (r & 3) | 8; s += h[r]; } return s; }\nconst inp = $('Normalize Input').first().json;\nfunction rows(name, key) { return $(name).all().map(function (i) { return i.json; }).filter(function (r) { return r && r[key]; }); }\nconst emp = rows('Get Employee', 'employee_id')[0];\nconst schedRow = rows('Get Schedule', 'employee_id').filter(function (r) { return String(r.active) !== 'false'; })[0];\nconst actives = rows('Get Active Shift', 'shift_id').sort(function (a, b) { return String(a.check_in_time).localeCompare(String(b.check_in_time)); });\nconst byUpdate = rows('Get Shift By Update', 'shift_id')[0];\nconst dlg = rows('Get Geo Request', 'telegram_id')[0];\nconst S = {};\nrows('Get Settings', 'setting_key').forEach(function (r) { S[r.setting_key] = r.setting_value; });\nfunction num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }\nconst LAT = num(S.work_lat, 51.161613);\nconst LON = num(S.work_lon, 71.417481);\nconst RADIUS = num(S.work_radius_m, 150);\nconst TTL = num(S.geo_request_ttl_min, 10);\nconst tz = S.timezone || 'Asia/Almaty';\nconst now = DateTime.now().setZone(tz);\nconst nowIso = now.toISO();\nconst MAIN_MENU = [['🟢 Начать работу', '🔴 Завершить работу'], ['🐟 Fish Coins', '📊 Моя статистика'], ['🏖 Отпуск', '🤒 Больничный'], ['📅 Встреча', '👤 Мой профиль'], ['🤖 Спросить TUNA']];\nconst LOC_KB = [['📍 Отправить геолокацию'], ['❌ Отмена']];\nconst active = actives[0];\nconst curStatus = active ? 'WORKING' : 'NOT_STARTED';\n\nfunction reply(text, kbType, extra) {\n  return Object.assign({ action: 'REPLY', chat_id: inp.chat_id, text: text, keyboard_type: kbType, keyboard: kbType === 'location' ? LOC_KB : (kbType === 'main_menu' ? MAIN_MENU : []), status: curStatus, distance_m: null, coin_result: null }, extra || {});\n}\nfunction out(op, r, extra) { return [{ json: Object.assign({ op: op, reply: r, telegram_id: inp.telegram_id, now_iso: nowIso }, extra || {}) }]; }\nfunction haversine(lat1, lon1, lat2, lon2) {\n  const R = 6371000;\n  const toR = function (x) { return x * Math.PI / 180; };\n  const dLat = toR(lat2 - lat1);\n  const dLon = toR(lon2 - lon1);\n  const h = Math.pow(Math.sin(dLat / 2), 2) + Math.cos(toR(lat1)) * Math.cos(toR(lat2)) * Math.pow(Math.sin(dLon / 2), 2);\n  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));\n}\nfunction fmtMin(m) { const h = Math.floor(m / 60); const mm = m % 60; return (h ? h + ' ч ' : '') + mm + ' мин'; }\n\nif (!emp) return out('REPLY_ONLY', reply('Вы ещё не зарегистрированы. Отправьте /start, чтобы пройти регистрацию.', 'remove', { result: 'NOT_REGISTERED' }));\n\nif (inp.action === 'CANCEL') {\n  return out('CLEAR_REQUEST', reply('Запрос геолокации отменён.', 'main_menu', { result: 'CANCELLED' }));\n}\n\nif (inp.action === 'REQUEST_CHECK_IN' || inp.action === 'REQUEST_CHECK_OUT') {\n  const isIn = inp.action === 'REQUEST_CHECK_IN';\n  if (isIn && active) return out('REPLY_ONLY', reply('У вас уже есть активная смена с ' + DateTime.fromISO(active.check_in_time).setZone(tz).toFormat('dd.MM HH:mm') + '. Сначала завершите её кнопкой «🔴 Завершить работу».', 'main_menu', { result: 'ALREADY_WORKING' }));\n  if (!isIn && !active) return out('REPLY_ONLY', reply('У вас нет активной смены. Чтобы начать, нажмите «🟢 Начать работу».', 'main_menu', { result: 'NO_ACTIVE_SHIFT' }));\n  const expires = now.plus({ minutes: TTL }).toISO();\n  return out('SET_REQUEST', reply((isIn ? 'Чтобы начать смену' : 'Чтобы завершить смену') + ', отправьте свою текущую геолокацию кнопкой «📍 Отправить геолокацию» в течение ' + TTL + ' мин. Пересланные и старые геолокации не принимаются.', 'location', { result: 'LOCATION_REQUESTED' }), {\n    flow: isIn ? 'CHECK_IN' : 'CHECK_OUT', expires_at: expires,\n    payload_json: JSON.stringify({ requested_at: nowIso, shift_id: active ? active.shift_id : null }),\n  });\n}\n\n// LOCATION\nconst flow = dlg ? String(dlg.flow || '') : '';\nif (flow !== 'CHECK_IN' && flow !== 'CHECK_OUT') return out('REPLY_ONLY', reply('Сейчас геолокация не запрашивалась. Нажмите «🟢 Начать работу» или «🔴 Завершить работу».', 'main_menu', { result: 'NO_REQUEST' }));\nconst exp = DateTime.fromISO(String(dlg.expires_at || ''));\nif (!exp.isValid || exp < now) return out('CLEAR_REQUEST', reply('Время на отправку геолокации истекло. Нажмите кнопку ещё раз.', 'main_menu', { result: 'EXPIRED' }));\nconst loc = inp.location;\nif (inp.is_forwarded) return out('REPLY_ONLY', reply('Пересланная геолокация не принимается. Отправьте свою текущую геолокацию кнопкой.', 'location', { result: 'FORWARDED' }));\nif (!loc || !Number.isFinite(Number(loc.latitude)) || !Number.isFinite(Number(loc.longitude))) return out('REPLY_ONLY', reply('Не удалось прочитать геолокацию. Отправьте её кнопкой «📍 Отправить геолокацию».', 'location', { result: 'INVALID_LOCATION' }));\nif (loc.live_period) return out('REPLY_ONLY', reply('Трансляция геопозиции не принимается. Отправьте обычную текущую геолокацию кнопкой.', 'location', { result: 'LIVE_LOCATION' }));\nconst nowSec = Math.floor(Date.now() / 1000);\nif (!inp.message_date || nowSec - inp.message_date > 120) return out('REPLY_ONLY', reply('Геолокация устарела. Отправьте текущую геолокацию заново.', 'location', { result: 'STALE' }));\nconst lat = Number(loc.latitude);\nconst lon = Number(loc.longitude);\nconst dist = Math.round(haversine(lat, lon, LAT, LON));\nif (dist > RADIUS) return out('REPLY_ONLY', reply('❌ Вы находитесь в ' + dist + ' м от рабочего места (допустимо ' + RADIUS + ' м). Подойдите ближе и отправьте геолокацию снова.', 'location', { result: 'OUTSIDE_RADIUS', distance_m: dist }));\nconst coords = lat.toFixed(6) + ',' + lon.toFixed(6);\n\nif (flow === 'CHECK_IN') {\n  if (byUpdate) return out('REPLY_ONLY', reply('Эта геолокация уже обработана.', 'main_menu', { result: 'DUPLICATE_UPDATE', status: 'WORKING', distance_m: dist }));\n  if (active) return out('CLEAR_REQUEST', reply('У вас уже есть активная смена.', 'main_menu', { result: 'ALREADY_WORKING', distance_m: dist }));\n  let cfg = {};\n  try { cfg = JSON.parse((schedRow && schedRow.config_json) || emp.schedule_config || '{}') || {}; } catch (e) { cfg = {}; }\n  const type = String(cfg.type || emp.schedule_type || '');\n  let cls = 'NO_SCHEDULE';\n  let dev = null;\n  let sStart = '';\n  let sEnd = '';\n  const today = now.startOf('day');\n  let offDay = false;\n  if (type === '5/2') offDay = now.weekday >= 6;\n  else if (type === '6/1') offDay = now.weekday === 7;\n  else if (type === '2/2' && cfg.first_work_date) {\n    const f = DateTime.fromFormat(String(cfg.first_work_date), 'dd.MM.yyyy', { zone: tz });\n    if (f.isValid) { const dd = Math.floor(today.diff(f.startOf('day'), 'days').days); offDay = (((dd % 4) + 4) % 4) >= 2; }\n  }\n  if (type === 'Гибкий') cls = 'FLEXIBLE';\n  else if (cfg.start && /^\\d{2}:\\d{2}$/.test(String(cfg.start))) {\n    const hm = String(cfg.start).split(':').map(Number);\n    const cands = [today.minus({ days: 1 }), today, today.plus({ days: 1 })].map(function (d) { return d.set({ hour: hm[0], minute: hm[1] }); });\n    let best = cands[1];\n    cands.forEach(function (c) { if (Math.abs(now.diff(c, 'minutes').minutes) < Math.abs(now.diff(best, 'minutes').minutes)) best = c; });\n    dev = Math.round(now.diff(best, 'minutes').minutes);\n    sStart = best.toISO();\n    if (cfg.end && /^\\d{2}:\\d{2}$/.test(String(cfg.end))) {\n      const he = String(cfg.end).split(':').map(Number);\n      let e = best.set({ hour: he[0], minute: he[1] });\n      if (e <= best) e = e.plus({ days: 1 });\n      sEnd = e.toISO();\n    }\n    cls = dev > 0 ? 'LATE' : 'ON_TIME';\n  }\n  if (offDay && cls !== 'FLEXIBLE') cls = 'OFF_SCHEDULE_DAY';\n  let clsText = '';\n  if (cls === 'LATE') clsText = '\\n⏰ Опоздание: ' + fmtMin(dev) + '. Смена всё равно начата.';\n  else if (cls === 'ON_TIME') clsText = '\\n👍 Вовремя.';\n  else if (cls === 'OFF_SCHEDULE_DAY') clsText = '\\nСегодня не рабочий день по вашему графику — смена записана как дополнительная.';\n  const shift = {\n    shift_id: uuidv4(), employee_id: emp.employee_id, telegram_id: inp.telegram_id,\n    work_date: now.toFormat('yyyy-MM-dd'), scheduled_start: sStart, scheduled_end: sEnd,\n    check_in_time: nowIso, check_in_coordinates: coords, distance_at_check_in: dist,\n    shift_status: 'WORKING', schedule_deviation_minutes: dev, check_in_class: cls,\n    coin_awarded: false, source_update_id: inp.update_id,\n  };\n  return out('CHECK_IN', reply('🟢 Смена начата в ' + now.toFormat('HH:mm') + ' (' + now.toFormat('dd.MM.yyyy') + ').\\nРасстояние до рабочего места: ' + dist + ' м.' + clsText, 'main_menu', { result: 'CHECKED_IN', status: 'WORKING', distance_m: dist, check_in_class: cls }), { shift: shift });\n}\n\n// CHECK_OUT\nif (!active) return out('CLEAR_REQUEST', reply('Активная смена не найдена.', 'main_menu', { result: 'NO_ACTIVE_SHIFT', distance_m: dist }));\nconst cin = DateTime.fromISO(String(active.check_in_time));\nconst minutes = cin.isValid ? Math.max(0, Math.round(now.diff(cin, 'minutes').minutes)) : 0;\nconst inGeoOk = !!active.check_in_coordinates && Number.isFinite(Number(active.distance_at_check_in));\nreturn out('CHECK_OUT', reply('🔴 Смена завершена в ' + now.toFormat('HH:mm') + '.\\nОтработано: ' + fmtMin(minutes) + '.\\nРасстояние до рабочего места: ' + dist + ' м.', 'main_menu', { result: 'CHECKED_OUT', status: 'FINISHED', distance_m: dist }), {\n  shift_id: active.shift_id, employee_id: emp.employee_id, work_date: active.work_date,\n  check_out_time: nowIso, check_out_coordinates: coords, distance_at_check_out: dist,\n  actual_duration_minutes: minutes, coin_eligible: inGeoOk,\n  idempotency_key: 'SHIFT:' + emp.employee_id + ':' + active.work_date,\n});"
+      },
+      "id": "28892011-2b15-4bc8-ac03-d7b48a3a6408",
+      "name": "Decide Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2064,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "REPLY_ONLY"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reply"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "SET_REQUEST"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "request"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "CLEAR_REQUEST"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clear"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "CHECK_IN"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "check_in"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.op }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "CHECK_OUT"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "check_out"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "73c9215b-03ec-4f2c-874f-b1c6cd4343e0",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        752,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Decide Action').first().json.reply }];"
+      },
+      "id": "fb37ec99-f427-403b-b46c-a70d71c6de27",
+      "name": "Refusal Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $json.telegram_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_id": "={{ $json.telegram_id }}",
+            "flow": "={{ $json.flow }}",
+            "step": "AWAIT_LOCATION",
+            "payload_json": "={{ $json.payload_json }}",
+            "expires_at": "={{ $json.expires_at }}",
+            "last_activity": "={{ $json.now_iso }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "flow",
+              "displayName": "flow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload_json",
+              "displayName": "payload_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expires_at",
+              "displayName": "expires_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_activity",
+              "displayName": "last_activity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7cbb5c68-0322-47c9-bc4b-f52dcb73c500",
+      "name": "Save Geo Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Decide Action').first().json.reply }];"
+      },
+      "id": "c99496cb-4a3f-41fc-981d-b3d967ce4600",
+      "name": "Location Request Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "32b73c35-cab8-49ab-9a2f-753222fb65db",
+      "name": "Clear Geo Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        512
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Decide Action').first().json.reply }];"
+      },
+      "id": "553f7250-4223-4327-b2f5-20af2a4041fb",
+      "name": "Request Closed Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VMyz46brLNvqjb27",
+          "cachedResultName": "tuna_shifts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "shift_id": "={{ $(\"Decide Action\").first().json.shift.shift_id }}",
+            "employee_id": "={{ $(\"Decide Action\").first().json.shift.employee_id }}",
+            "telegram_id": "={{ $(\"Decide Action\").first().json.shift.telegram_id }}",
+            "work_date": "={{ $(\"Decide Action\").first().json.shift.work_date }}",
+            "scheduled_start": "={{ $(\"Decide Action\").first().json.shift.scheduled_start }}",
+            "scheduled_end": "={{ $(\"Decide Action\").first().json.shift.scheduled_end }}",
+            "check_in_time": "={{ $(\"Decide Action\").first().json.shift.check_in_time }}",
+            "check_out_time": "",
+            "check_in_coordinates": "={{ $(\"Decide Action\").first().json.shift.check_in_coordinates }}",
+            "check_out_coordinates": "",
+            "distance_at_check_in": "={{ $(\"Decide Action\").first().json.shift.distance_at_check_in }}",
+            "shift_status": "WORKING",
+            "schedule_deviation_minutes": "={{ $(\"Decide Action\").first().json.shift.schedule_deviation_minutes }}",
+            "check_in_class": "={{ $(\"Decide Action\").first().json.shift.check_in_class }}",
+            "coin_awarded": false,
+            "source_update_id": "={{ $(\"Decide Action\").first().json.shift.source_update_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "shift_id",
+              "displayName": "shift_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "work_date",
+              "displayName": "work_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scheduled_start",
+              "displayName": "scheduled_start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scheduled_end",
+              "displayName": "scheduled_end",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_in_time",
+              "displayName": "check_in_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_out_time",
+              "displayName": "check_out_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_in_coordinates",
+              "displayName": "check_in_coordinates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_out_coordinates",
+              "displayName": "check_out_coordinates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "distance_at_check_in",
+              "displayName": "distance_at_check_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "shift_status",
+              "displayName": "shift_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "schedule_deviation_minutes",
+              "displayName": "schedule_deviation_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_in_class",
+              "displayName": "check_in_class",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "coin_awarded",
+              "displayName": "coin_awarded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_update_id",
+              "displayName": "source_update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8b5b9c81-b68d-4467-b344-c606db560f31",
+      "name": "Insert Shift",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d3126e20-a0e2-4817-b0b2-5326ba042e0a",
+      "name": "Clear Check-in Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        704
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Decide Action').first().json.reply }];"
+      },
+      "id": "a7bcad5a-9b6c-4dfb-b5ba-e7428e6166d4",
+      "name": "Check-in Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VMyz46brLNvqjb27",
+          "cachedResultName": "tuna_shifts"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shift_id",
+              "keyValue": "={{ $json.shift_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "check_out_time": "={{ $json.check_out_time }}",
+            "check_out_coordinates": "={{ $json.check_out_coordinates }}",
+            "distance_at_check_out": "={{ $json.distance_at_check_out }}",
+            "actual_duration_minutes": "={{ $json.actual_duration_minutes }}",
+            "shift_status": "FINISHED"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "check_out_time",
+              "displayName": "check_out_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_out_coordinates",
+              "displayName": "check_out_coordinates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "distance_at_check_out",
+              "displayName": "distance_at_check_out",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "actual_duration_minutes",
+              "displayName": "actual_duration_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "shift_status",
+              "displayName": "shift_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c507b44e-2304-4345-8681-fe08487ff432",
+      "name": "Finish Shift",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mztT7xGMxozmu3Jj",
+          "cachedResultName": "tuna_dialog_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c660d898-5813-4ab5-8750-2e6ace089efa",
+      "name": "Clear Check-out Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        1040
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VMyz46brLNvqjb27",
+          "cachedResultName": "tuna_shifts"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "employee_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.employee_id }}"
+            },
+            {
+              "keyName": "work_date",
+              "keyValue": "={{ $(\"Decide Action\").first().json.work_date }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "c1a94f5c-25ad-48be-93d5-bf53cab53112",
+      "name": "Get Same-Day Rewarded Shifts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1472,
+        1040
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $(\"Decide Action\").first().json.coin_eligible === true && $(\"Get Same-Day Rewarded Shifts\").all().filter(i => i.json.shift_id && String(i.json.coin_awarded) === \"true\").length === 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a0a68be-db70-4415-9e01-dcb993629f6c",
+      "name": "Coin Eligible?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1696,
+        1040
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "WARA6Q8BVUq8j8e4",
+          "cachedResultName": "TUNA – Fish Coins Ledger"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "employee_id": "={{ $(\"Decide Action\").first().json.employee_id }}",
+            "amount": 1,
+            "transaction_type": "SHIFT_BONUS",
+            "reason": "=Смена завершена с геопроверкой ({{ $(\"Decide Action\").first().json.work_date }})",
+            "initiated_by": "SYSTEM",
+            "related_shift_id": "={{ $(\"Decide Action\").first().json.shift_id }}",
+            "idempotency_key": "={{ $(\"Decide Action\").first().json.idempotency_key }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "employee_id",
+              "displayName": "employee_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "transaction_type",
+              "displayName": "transaction_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "initiated_by",
+              "displayName": "initiated_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "related_shift_id",
+              "displayName": "related_shift_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "c7d44ac5-355d-4db7-a176-39f267c399ca",
+      "name": "Call Shift Ledger",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1920,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "APPLIED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d13f8be-e6e8-4a8b-a686-2122b6b8adc5",
+      "name": "Coin Applied?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2144,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VMyz46brLNvqjb27",
+          "cachedResultName": "tuna_shifts"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "shift_id",
+              "keyValue": "={{ $(\"Decide Action\").first().json.shift_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "coin_awarded": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "coin_awarded",
+              "displayName": "coin_awarded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "addbf8bd-3f9e-4310-b4b7-381b5fd9533b",
+      "name": "Mark Coin Awarded",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2368,
+        896
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Decide Action').first().json;\nconst r = Object.assign({}, d.reply);\nlet w = null;\ntry { w = $('Call Shift Ledger').first().json; } catch (e) { w = null; }\nif (!w) {\n  r.coin_result = d.coin_eligible ? 'ALREADY_AWARDED_TODAY' : 'NOT_ELIGIBLE';\n  r.text += d.coin_eligible ? '\\n🐟 Fish Coin за этот рабочий день уже начислен.' : '\\nFish Coin не начислен: нет подтверждённой геопроверки при начале смены.';\n} else {\n  r.coin_result = w.result;\n  if (w.result === 'APPLIED') r.text += '\\n🐟 +1 Fish Coin! Баланс: ' + w.balance_after + '.';\n  else if (w.result === 'DUPLICATE') r.text += '\\n🐟 Fish Coin за этот рабочий день уже начислен.';\n  else if (w.result === 'CAP_REACHED') r.text += '\\n🐟 Достигнут максимум Fish Coins (' + w.max + ').';\n  else r.text += '\\nFish Coin не начислен (' + w.result + ').';\n}\nreturn [{ json: r }];"
+      },
+      "id": "707bb83e-714b-4813-bd0c-a014f08bb651",
+      "name": "Check-out Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2592,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { action: 'NOOP', reason: 'missing telegram_id or unknown action' } }];"
+      },
+      "id": "d2d8e667-e584-415b-9bf6-b3669242acaf",
+      "name": "NOOP Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        704
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Shift Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Valid Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Request?": {
+      "main": [
+        [
+          {
+            "node": "Get Employee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NOOP Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Employee": {
+      "main": [
+        [
+          {
+            "node": "Get Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Schedule": {
+      "main": [
+        [
+          {
+            "node": "Get Active Shift",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Shift": {
+      "main": [
+        [
+          {
+            "node": "Get Shift By Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Shift By Update": {
+      "main": [
+        [
+          {
+            "node": "Get Geo Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Geo Request": {
+      "main": [
+        [
+          {
+            "node": "Get Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Settings": {
+      "main": [
+        [
+          {
+            "node": "Decide Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Action": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Refusal Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Geo Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear Geo Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Shift",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish Shift",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Geo Request": {
+      "main": [
+        [
+          {
+            "node": "Location Request Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Geo Request": {
+      "main": [
+        [
+          {
+            "node": "Request Closed Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Shift": {
+      "main": [
+        [
+          {
+            "node": "Clear Check-in Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Check-in Request": {
+      "main": [
+        [
+          {
+            "node": "Check-in Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish Shift": {
+      "main": [
+        [
+          {
+            "node": "Clear Check-out Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Check-out Request": {
+      "main": [
+        [
+          {
+            "node": "Get Same-Day Rewarded Shifts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Same-Day Rewarded Shifts": {
+      "main": [
+        [
+          {
+            "node": "Coin Eligible?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coin Eligible?": {
+      "main": [
+        [
+          {
+            "node": "Call Shift Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check-out Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Shift Ledger": {
+      "main": [
+        [
+          {
+            "node": "Coin Applied?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coin Applied?": {
+      "main": [
+        [
+          {
+            "node": "Mark Coin Awarded",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check-out Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Coin Awarded": {
+      "main": [
+        [
+          {
+            "node": "Check-out Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "45be46cf-088f-495e-945f-b78ba159d094",
+  "meta": {
+    "instanceId": "b3b64599f7cfd6fc4e99305a6bd3a6f9ffcdd44c96792cea2b8e889b747dc26a"
+  },
+  "nodeGroups": [
+    {
+      "id": "ded15069-107e-4322-8a2b-57642f223b97",
+      "name": "Load shift context",
+      "nodeIds": [
+        "c8fc0813-7e18-47ac-b36f-19dd3771ede6",
+        "8568e5d1-223c-4f6b-bcfc-d3ff4b8f9f94",
+        "d2d8e667-e584-415b-9bf6-b3669242acaf",
+        "72a43ee1-cf0b-49d6-b76f-3f600d074d13",
+        "bfc2fb26-8ef2-43c5-9d1e-12d61c98fca3",
+        "af8fc1e0-0c96-4792-a40d-a1c2330b4c38",
+        "36cc66f4-8a40-416e-9785-fab2d510780b",
+        "66800741-bb7e-48a7-8467-106e046a78c9",
+        "a1e4f2bd-d8b3-4a4a-a978-0401b75e0fe2",
+        "28892011-2b15-4bc8-ac03-d7b48a3a6408"
+      ],
+      "description": "Reads employee, schedule, open shift, pending geo request and settings, then checks location and decides the outcome"
+    },
+    {
+      "id": "5547bb17-6df0-4b66-bbd8-9d6119c79078",
+      "name": "Ask for location",
+      "nodeIds": [
+        "7cbb5c68-0322-47c9-bc4b-f52dcb73c500",
+        "c99496cb-4a3f-41fc-981d-b3d967ce4600"
+      ],
+      "description": "Stores a time-limited geo request and asks for a fresh location via button"
+    },
+    {
+      "id": "e084cdd8-20eb-4201-9235-b030d739c09b",
+      "name": "Close geo request",
+      "nodeIds": [
+        "32b73c35-cab8-49ab-9a2f-753222fb65db",
+        "553f7250-4223-4327-b2f5-20af2a4041fb"
+      ],
+      "description": "On cancel or expiry removes the pending request and returns the main menu"
+    },
+    {
+      "id": "ccb4b6fd-915b-479f-8f76-58530d60756c",
+      "name": "Open shift",
+      "nodeIds": [
+        "8b5b9c81-b68d-4467-b344-c606db560f31",
+        "d3126e20-a0e2-4817-b0b2-5326ba042e0a",
+        "a7bcad5a-9b6c-4dfb-b5ba-e7428e6166d4"
+      ],
+      "description": "Stores a WORKING shift with server time, distance and on-time/late class; lateness never blocks"
+    },
+    {
+      "id": "4e34c1ea-7b41-4088-bea9-7bf0014596b8",
+      "name": "Close shift and reward",
+      "nodeIds": [
+        "c507b44e-2304-4345-8681-fe08487ff432",
+        "c660d898-5813-4ab5-8750-2e6ace089efa",
+        "c1a94f5c-25ad-48be-93d5-bf53cab53112",
+        "7a0a68be-db70-4415-9e01-dcb993629f6c",
+        "c7d44ac5-355d-4db7-a176-39f267c399ca",
+        "4d13f8be-e6e8-4a8b-a686-2122b6b8adc5",
+        "addbf8bd-3f9e-4310-b4b7-381b5fd9533b",
+        "707bb83e-714b-4813-bd0c-a014f08bb651"
+      ],
+      "description": "Finishes the shift with worked minutes and gives +1 Fish Coin at most once per work date"
+    }
+  ],
+  "id": "vEBOeSBfA7NJCH5Z",
+  "tags": []
+}
